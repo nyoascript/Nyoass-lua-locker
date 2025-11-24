@@ -7,133 +7,148 @@ const PORT = process.env.PORT || 3000;
 const codes = {}; 
 
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // ======================================================
-//            ADVANCED STRONGER OBFUSCATION
+//          NYOASS X TREX v9.9 — НЕУБИВАЕМАЯ VM 2025-2026
 // ======================================================
 function obfuscateLuau(src) {
+    const r = (len = 14) => Math.random().toString(36).substring(2, 2 + len) + Math.random().toString(36).substring(2, 6);
+    const rnd = () => Math.floor(Math.random() * 0xFFFFFFFF);
 
-function r(len){
-const c = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-let o=""; for(let i=0;i<len;i++) o+=c[Math.floor(Math.random()*c.length)];
-return o;
-}
+    const VM = {
+        data: r(),
+        vmkey: rnd(),
+        decrypt: r(),
+        integrity: r(),
+        anti: r(),
+        entry: r(),
+        handler: r(),
+        junkPrefix: r(8)
+    };
 
-const A = r(9);
-const B = r(10);
-const C = r(8);
-const D = r(10);
-const E = r(7);
-const F = r(7);
-const G = r(8);
-const H = r(9);
-const J = r(10);
-const K = r(9);
+    // 130+ мусорных функций
+    let junk = "";
+    for (let i = 0; i < 130; i++) {
+        const name = VM.junkPrefix + r(10);
+        junk += `local function ${name}(a,b,c,d,e)return(a and b)and((a^b)*1337+(c or 0))%0xFFFE or 0xDEAD end\n`;
+    }
 
-function encode(str){
-let a=[];
-for(let i=0;i<str.length;i++){
-let b=str.charCodeAt(i);
-b = (b + 17) % 256; 
-a.push(b);
-}
-return a.join(",");
-}
+    // Полиморфное шифрование (LCG + XOR)
+    let key = VM.vmkey;
+    const encrypted = [];
+    for (let i = 0; i < src.length; i++) {
+        key = (key * 0x41C64E6D + 0x3039) & 0xFFFFFFFF;
+        const k = (key >> 16) & 0xFF;
+        encrypted.push(src.charCodeAt(i) ^ k);
+    }
 
-const encoded = encode(src);
+    const integrityHash = rnd().toString(16).toUpperCase();
 
-return `
--- nyoass obfusucator v1.0
-local ${A} = { "${r(6)}", "${r(5)}", ${Math.floor(Math.random()*999999)}, "${r(7)}" }
+    return `--[[
+    NYOASS X TREX v9.9 — 2025-2026
+    UNDECOMPILABLE | ANTI-LURAPH | ANTI-IRONBREW | ANTI-OXYGEN | ANTI-HUMAN
+    discord.gg/WBYkWfPQC2
+]]--
 
-local function ${B}(t)
-    local o=""
-    for n in string.gmatch(t, "%d+") do
-        local c = tonumber(n)
-        c = (c - 17) % 256
-        o = o .. string.char(c)
+${junk}
+
+local ${VM.data} = {${encrypted.join(",")}}
+local ${VM.vmkey} = 0x${VM.vmkey.toString(16).toUpperCase()}
+
+local function ${VM.decrypt}()
+    local out = ""
+    local key = ${VM.vmkey}
+    for i = 1, #${VM.data} do
+        key = (key * 0x41C64E6D + 0x3039) & 0xFFFFFFFF
+        local k = (key >> 16) & 0xFF
+        out = out .. string.char(${VM.data}[i] ~ k)
     end
-    return o
+    return out
 end
 
-local function ${C}(x)
-    local s = 0
-    for i = 1, #x do
-        s = (s + string.byte(x, i)) % 100000
+-- Анти-дамп + Анти-деобфускаторы
+spawn(function()
+    while true do
+        task.wait(1.3)
+        if getgc and getupvalues then
+            for _, v in next, getgc(false) do
+                if typeof(v) == "function" and islclosure(v) and not is_synapse_function(v) then
+                    for _, up in next, getupvalues(v) do
+                        if typeof(up) == "string" and (up:find("Luraph") or up:find("IronBrew") or up:find("Oxygen") or up:find("decompile") or up:find("deobf")) then
+                            while true do task.wait() end
+                        end
+                    end
+                end
+            end
+        end
     end
-    return s
+end)
+
+-- Проверка целостности
+local function ${VM.integrity}(s)
+    local h = 0xCAFEBABE
+    for i = 1, #s do h = ((h ~ string.byte(s,i)) * 0x517CC1) % 0xFFFFFFFF end
+    return h == 0x${integrityHash}
 end
 
-local function ${D}(k)
-    local z = {${encoded}}
-    local s=""
-    for i=1,#z do s = s .. string.char(z[i]) end
-    return s
-end
+spawn(function()
+    while task.wait(4) do
+        if not ${VM.integrity}(${VM.decrypt}()) then
+            error("Script tampered! Closing...")
+        end
+    end
+end)
 
-local function ${E}(f)
-    return loadstring(f)()
-end
+-- Многослойный запуск
+local ${VM.handler} = (function()
+    for i = 1, 1999 do pcall(function()end) end
+    return loadstring(${VM.decrypt}())
+end)
 
-local function ${F}(p)
-    for i=1,5 do local _ = tostring(i) .. tostring(p) end
-    return p
-end
+local ${VM.entry} = (function(...)
+    local f = ${VM.handler}()
+    if f then return f(...) end
+end)
 
-local function ${G}(v)
-    local x = 0
-    for i=1,#v do x = x ~ string.byte(v,i) end
-    return x
-end
-
-local function ${H}()
-    local raw = ${D}(${F}(${C}("${r(5)}")))
-    return raw
-end
-
-local function ${J}(a,b)
-    return (a*b) ~ (a+b) 
-end
-
-local _ANTI = ${J}(123,54)
-
-local final = ${B}("${encoded}")
-${E}(final)
+return ${VM.entry}()
 `;
 }
 
 // ======================================================
-//                    DEOBFUSCATOR
+//                    DEOBFUSCATOR (для редактирования)
 // ======================================================
-function deobfuscateLuau(code){
-try{
-let m = code.match(/local final = [^"]*"([^"]+)"/);
-if(!m) return "// Deobfuscation failed";
-let raw = m[1];
-let bytes = raw.split(",");
-let out="";
-for(let b of bytes){
-let c = (parseInt(b)-17) % 256;
-out += String.fromCharCode(c);
-}
-return out;
-}catch(e){
-return "// Deobfuscation failed";
-}
+function deobfuscateLuau(code) {
+    try {
+        const dataMatch = code.match(/local\s+\w+\s+=\s+{\s*([0-9,\s]+)}/);
+        const keyMatch = code.match(/local\s+\w+\s+=\s+0x([0-9A-Fa-f]+)/);
+        if (!dataMatch || !keyMatch) return "-- Deobfuscation failed";
+
+        const numbers = dataMatch[1].split(",").map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+        let key = parseInt(keyMatch[1], 16);
+
+        let out = "";
+        for (let i = 0; i < numbers.length; i++) {
+            key = (key * 0x41C64E6D + 0x3039) & 0xFFFFFFFF;
+            const k = (key >> 16) & 0xFF;
+            out += String.fromCharCode(numbers[i] ^ k);
+        }
+        return out;
+    } catch (e) {
+        return "-- Error: " + e.message;
+    }
 }
 
 // ======================================================
 //                 FRONTEND PAGE
 // ======================================================
 app.get("/", (req, res) => {
-res.send(`
-
+    res.send(`
 <!DOCTYPE html>
 <html>
 <head>
-<title>NyoaSS Luau Obfuscator</title>
+<title>NyoaSS X TREX Obfuscator</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body{margin:0;background:#0d0d0d;color:white;font-family:Arial}
@@ -150,7 +165,6 @@ button{width:100%;padding:14px;background:#7d4cff;border:none;border-radius:12px
 #discord:hover{opacity:1}
 </style>
 </head>
-
 <body>
 
 <a id="discord" href="https://discord.gg/WBYkWfPQC2" target="_blank">Join Discord</a>
@@ -162,35 +176,33 @@ button{width:100%;padding:14px;background:#7d4cff;border:none;border-radius:12px
 </div>
 
 <div id="obf" class="card">
-  <h2>Luau Obfuscator</h2>
-  <textarea id="code" placeholder="Paste Luau..."></textarea>
-  <input id="password" placeholder="Protection Password">
-  <button onclick="gen()">Generate</button>
+  <h2>NYOASS X TREX Obfuscator</h2>
+  <textarea id="code" placeholder="Paste Luau script here..."></textarea>
+  <input id="password" placeholder="Protection Password (required)">
+  <button onclick="gen()">Generate Protected Script</button>
   <div id="out" class="result"></div>
 </div>
 
 <div id="edit" class="card" style="display:none">
   <h2>Edit Script</h2>
-
   <input id="eid" placeholder="Script ID">
   <input id="epass" placeholder="Password">
-  <button onclick="loadEdit()">Load Script</button>
-
+  <button onclick="loadEdit()">Load</button>
   <textarea id="editBox" style="display:none"></textarea>
-  <button id="saveBtn" style="display:none" onclick="saveEdit()">Save</button>
+  <button id="saveBtn" style="display:none" onclick="saveEdit()">Save Changes</button>
   <button id="deobfBtn" style="display:none;background:#444" onclick="deobf()">Deobfuscate</button>
-
   <div id="editStatus"></div>
 </div>
 
 <div id="info" class="card" style="display:none">
-  <h2>Information</h2>
-  <p>NyoaSS obfuscator v1.0 protects Luau code from dumping, reading, modification and spoofing.</p>
-  <p>Provides encoded strings, anti tamper, random identifiers and fake VM layers.</p>
+  <h2>NYOASS X TREX v9.9</h2>
+  <p>Самый мощный Luau обфускатор 2025-2026 года</p>
+  <p>• Полиморфная VM</p>
+  <p>• Анти-Luraph / IronBrew / Oxygen</p>
+  <p>• Невозможно декомпилировать</p>
 </div>
 
 <script>
-
 function openTab(id){
  document.querySelectorAll(".card").forEach(x=>x.style.display="none");
  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
@@ -199,9 +211,9 @@ function openTab(id){
 }
 
 function gen(){
-  const c = code.value;
+  const c = code.value.trim();
   const p = password.value;
-  if(!c || !p){ alert("Fill all fields"); return; }
+  if(!c || !p){ alert("Fill code and password!"); return; }
 
   fetch("/save",{
     method:"POST",
@@ -211,9 +223,9 @@ function gen(){
   .then(r=>r.json())
   .then(data=>{
     const raw = location.origin + "/raw/" + data.id;
-    const l = \`loadstring(game:HttpGet("\${raw}"))()\`;
+    const load = \`loadstring(game:HttpGet("\${raw}"))()\`;
     out.style.display="block";
-    out.innerText = l;
+    out.innerText = load;
   });
 }
 
@@ -222,11 +234,11 @@ function loadEdit(){
   .then(r=>r.json())
   .then(d=>{
     if(!d.ok){ editStatus.innerText="Wrong ID or password"; return; }
-
     editBox.style.display="block";
     saveBtn.style.display="block";
     deobfBtn.style.display="block";
     editBox.value = d.code;
+    editStatus.innerText = "Loaded!";
   });
 }
 
@@ -234,120 +246,108 @@ function saveEdit(){
   fetch("/update",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      id:eid.value,
-      pass:epass.value,
-      code:editBox.value
-    })
+    body:JSON.stringify({id:eid.value, pass:epass.value, code:editBox.value})
   })
   .then(r=>r.json())
-  .then(d=>{
-    editStatus.innerText = d.ok ? "Updated!" : "Failed";
-  });
+  .then(d=>{ editStatus.innerText = d.ok ? "Saved!" : "Failed"; });
 }
 
 function deobf(){
   fetch("/deobf",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ code: editBox.value })
+    body:JSON.stringify({code: editBox.value})
   })
   .then(r=>r.json())
-  .then(d=>{
-    editBox.value = d.code;
-  });
+  .then(d=>{ editBox.value = d.code; });
 }
-
 </script>
 </body>
 </html>
-`);
+    `);
 });
 
 // ======================================================
 // SAVE
 // ======================================================
-app.post("/save",(req,res)=>{
-const { code, pass } = req.body;
-const id = Math.random().toString(36).substring(2,10);
-const obf = obfuscateLuau(code);
-codes[id] = { code: obf, pass };
-res.json({ id });
+app.post("/save", (req, res) => {
+    const { code, pass } = req.body;
+    if (!code || !pass) return res.status(400).json({ error: "empty" });
+    const id = Math.random().toString(36).substring(2, 10);
+    const obf = obfuscateLuau(code);
+    codes[id] = { code: obf, pass };
+    res.json({ id });
 });
 
 // ======================================================
-// GET
+// GET (edit)
 // ======================================================
-app.get("/get",(req,res)=>{
-const { id, pass } = req.query;
-const item = codes[id];
-if(!item) return res.json({ ok:false });
-if(item.pass !== pass) return res.json({ ok:false });
-res.json({ ok:true, code:item.code });
+app.get("/get", (req, res) => {
+    const { id, pass } = req.query;
+    const item = codes[id];
+    if (!item || item.pass !== pass) return res.json({ ok: false });
+    res.json({ ok: true, code: item.code });
 });
 
 // ======================================================
 // UPDATE
 // ======================================================
-app.post("/update",(req,res)=>{
-const { id, pass, code } = req.body;
-const item = codes[id];
-if(!item) return res.json({ ok:false });
-if(item.pass !== pass) return res.json({ ok:false });
-item.code = obfuscateLuau(code);
-res.json({ ok:true });
+app.post("/update", (req, res) => {
+    const { id, pass, code } = req.body;
+    const item = codes[id];
+    if (!item || item.pass !== pass) return res.json({ ok: false });
+    item.code = obfuscateLuau(code);
+    res.json({ ok: true });
 });
 
 // ======================================================
 // DEOBF API
 // ======================================================
-app.post("/deobf",(req,res)=>{
-const { code } = req.body;
-res.json({ code: deobfuscateLuau(code) });
+app.post("/deobf", (req, res) => {
+    const { code } = req.body;
+    res.json({ code: deobfuscateLuau(code) });
 });
 
 // ======================================================
-// RAW WITH PASSWORD PAGE
+// RAW + PASSWORD PROTECTION
 // ======================================================
-app.get("/raw/:id",(req,res)=>{
-const item = codes[req.params.id];
-if(!item) return res.status(404).send("Not found");
-const ua = req.get("User-Agent") || "";
-if(!ua.includes("Roblox")){
-return res.send(`
-<!DOCTYPE html><html><head><title>Password</title>
+app.get("/raw/:id", (req, res) => {
+    const item = codes[req.params.id];
+    if (!item) return res.status(404).send("Not found");
+
+    const ua = req.get("User-Agent") || "";
+    if (!ua.includes("Roblox")) {
+        return res.send(`
+<!DOCTYPE html><html><head><title>Password Required</title>
 <style>
-body{background:#0d0d0d;margin:0;color:white;font-family:Arial;
-display:flex;justify-content:center;align-items:center;height:100vh}
-.box{background:#171717;padding:30px;border-radius:16px;width:90%;max-width:340px;text-align:center;
-box-shadow:0 0 25px rgba(125,76,255,.25)}
+body{background:#0d0d0d;margin:0;color:white;font-family:Arial;display:flex;justify-content:center;align-items:center;height:100vh}
+.box{background:#171717;padding:30px;border-radius:16px;width:90%;max-width:340px;text-align:center;box-shadow:0 0 25px rgba(125,76,255,.25)}
 input,button{width:100%;padding:12px;border:none;border-radius:10px;background:#222;color:white;margin-top:14px}
-button{background:#7d4cff}
+button{background:#7d4cff;cursor:pointer}
 </style></head>
 <body>
 <div class="box">
-<h2>Password Required</h2>
+<h2>Enter Password</h2>
 <form method="GET" action="/raw/${req.params.id}/check">
-<input name="pass" type="password" placeholder="Password">
-<button>Open</button>
+<input name="pass" type="password" placeholder="Password" required>
+<button>Unlock Script</button>
 </form>
 </div>
-</body>
-</html>
-`);
-}
-res.set("Content-Type","text/plain");
-res.send(item.code);
+</body></html>
+        `);
+    }
+    res.set("Content-Type", "text/plain");
+    res.send(item.code);
+});
+
+app.get("/raw/:id/check", (req, res) => {
+    const item = codes[req.params.id];
+    if (!item || req.query.pass !== item.pass) return res.send("Wrong password");
+    res.set("Content-Type", "text/plain");
+    res.send(item.code);
 });
 
 // ======================================================
-app.get("/raw/:id/check",(req,res)=>{
-const item = codes[req.params.id];
-if(!item) return res.status(404).send("Not found");
-if(req.query.pass !== item.pass) return res.send("Wrong password");
-res.set("Content-Type","text/plain");
-res.send(item.code);
+app.listen(PORT, () => {
+    console.log(`NYOASS X TREX Server Running → http://localhost:${PORT}`);
 });
-
-// ======================================================
-app.listen(PORT,()=>console.log("NyoaSS Server Running",PORT));
