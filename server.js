@@ -14,38 +14,40 @@ app.use(express.urlencoded({ extended: true }));
 //            ADVANCED STRONGER OBFUSCATION
 // ======================================================
 function obfuscateLuau(src) {
-    const c = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    const r = (len) => { let s = ""; for(let i=0;i<len;i++) s += c[Math.floor(Math.random()*c.length)]; return s; };
-    const rn = () => Math.floor(Math.random()*899999)+100000;
-
-    const t = [];
-    for(let i=0;i<43;i++) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    const randStr = (len) => {
         let s = "";
-        for(let j=0;j<11;j++) s += "\\"+rn();
-        t.push(`"${s}"`);
-    }
-    t.push(`"${src.replace(/"/g,'\\"').replace(/\\/g,"\\\\")}"`);
+        for(let i = 0; i < len; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
+        return s;
+    };
+    const randNum = () => Math.floor(Math.random() * 899999) + 100000;
 
-    for(let i=t.length-1;i>0;i--){
-        const j = Math.floor(Math.random()* (i+1));
-        [t[i],t[j]] = [t[j],t[i]];
+    const strings = [];
+    for(let i = 0; i < 44; i++) {
+        let fake = "";
+        for(let j = 0; j < 12; j++) fake += "\\" + randNum();
+        strings.push(`"${fake}"`);
+    }
+    strings.push(`"${src.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")}"`);
+
+    for(let i = strings.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [strings[i], strings[j]] = [strings[j], strings[i]];
     }
 
-    const idx = t.length-1;
-    const offset1 = rn();
-    const offset2 = rn();
-    const acc = `local function g(i) return t[i+${offset1}-${offset2}] end`;
+    const realIndex = strings.length - 1;
+    const offsetA = randNum();
+    const offsetB = randNum();
 
     let junk = "";
-    for(let i=0;i<40;i++) {
-        const name = r(12);
-        junk += `local ${name}=function()return ${rn()} end `;
+    for(let i = 0; i < 38; i++) {
+        junk += `local ${randStr(11)} = function() return ${randNum()} end `;
     }
 
-    return `local t={${t.join(",")}}
+    return `local t={${strings.join(",")}}
 ${junk}
-${acc}
-return loadstring(g(${idx-42}))()`;
+local function g(i) return t[i+${offsetA}-${offsetB}] end
+return loadstring(g(${realIndex - 43}))()`;
 }
 
 // ======================================================
@@ -53,11 +55,11 @@ return loadstring(g(${idx-42}))()`;
 // ======================================================
 function deobfuscateLuau(code){
     try{
-        const m = code.match(/local t=\{([^}]+)\}/);
-        if(!m) return "// Deobfuscation failed";
-        const arr = m[1].split(",").map(s=>s.trim().replace(/^"|"$/g,""));
-        const real = arr.find(s => s.includes('"') && !/^\\\d+$/.test(s.replace(/\\\\/g,"")));
-        return real ? real.replace(/\\"/g,'"').replace(/\\\\/g,"\\") : "// Deobfuscation failed";
+        const match = code.match(/local t=\{([^}]+)\}/);
+        if(!match) return "// Deobfuscation failed";
+        const parts = match[1].split(",").map(s => s.trim().replace(/^"|"$/g, ""));
+        const real = parts.find(p => !/^(\\+\\d+)+$/.test(p));
+        return real ? real.replace(/\\"/g, '"').replace(/\\\\/g, '\\') : "// Deobfuscation failed";
     }catch(e){
         return "// Deobfuscation failed";
     }
