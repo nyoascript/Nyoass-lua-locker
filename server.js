@@ -29,45 +29,82 @@ body {
   justify-content:center;
   align-items:center;
 }
+
 .top-menu {
   position:fixed; top:12px; left:50%; transform:translateX(-50%);
   display:flex; gap:20px;
 }
 .tab {
-  padding:10px 20px; background:#191919;
-  border-radius:12px; cursor:pointer;
-  box-shadow:0 0 10px rgba(125,76,255,.3);
+  padding:10px 20px;
+  background:#191919;
+  border-radius:12px;
+  cursor:pointer;
+  box-shadow:0 0 10px rgba(125,76,255,.35);
+  transition:.2s;
 }
+.tab:hover {
+  background:#222;
+}
+
 .discord-btn {
-  position:fixed; top:22px; right:22px;
-  padding:12px 20px; background:#5865f2;
-  border-radius:12px; cursor:pointer;
+  position:fixed;
+  bottom:20px;
+  left:20px;
+  padding:12px 20px;
+  background:#5865f2;
+  border-radius:12px;
+  cursor:pointer;
+  transition:.2s;
 }
+.discord-btn:hover {
+  transform:scale(1.07);
+}
+
 .card {
-  background:#161616; padding:35px;
-  width:92%; max-width:600px;
+  background:#161616;
+  padding:35px;
+  width:92%;
+  max-width:600px;
   border-radius:20px;
   box-shadow:0 0 30px rgba(125,76,255,.3);
 }
+
 textarea, input {
-  width:100%; padding:14px;
-  background:#222; border:none;
-  border-radius:12px; margin-top:14px;
+  width:100%;
+  padding:14px;
+  background:#222;
+  border:none;
+  border-radius:12px;
+  margin-top:14px;
   color:white;
+  font-size:15px;
 }
 textarea { height:170px; resize:none; }
+
 button {
-  width:100%; padding:15px;
-  margin-top:20px; background:#7d4cff;
-  border:none; border-radius:14px;
-  color:white; cursor:pointer;
+  width:100%;
+  padding:15px;
+  margin-top:20px;
+  background:#7d4cff;
+  border:none;
+  border-radius:14px;
+  color:white;
+  cursor:pointer;
+  font-size:17px;
 }
+button:hover { opacity:.9; }
+
 .result-box {
   margin-top:25px;
-  padding:15px; background:#111;
-  border-radius:12px; word-break:break-all;
+  padding:15px;
+  background:#111;
+  border-radius:12px;
+  word-break:break-all;
   display:none;
+  color:#cecece;
+  font-size:15px;
 }
+
 .hidden { display:none; }
 </style>
 
@@ -92,24 +129,32 @@ button {
     <textarea id="code" placeholder="Paste your script..."></textarea>
     <input id="password" type="text" placeholder="Password">
     <button onclick="generate()">Generate Loadstring</button>
-    <div id="resultBox" class="result-box"><span id="output"></span></div>
+    <div id="resultBox" class="result-box">
+      <b>Your Loadstring:</b><br><br>
+      <span id="output"></span>
+    </div>
   </div>
 
   <!-- INFO -->
   <div id="infoTab" class="hidden">
     <h1>Information</h1>
-    <div>Secure cloud-based Luau obfuscation.</div>
+    <div style="color:#c7c7c7;line-height:1.5;margin-top:10px;">
+      Cloud protected Luau obfuscation.<br>
+      Prevents dumping, spoofing, tracing, tampering and memory scans.
+    </div>
   </div>
 
   <!-- EDIT -->
   <div id="editTab" class="hidden">
     <h1>Edit Script</h1>
     <input id="edit_id" placeholder="ID">
-    <input id="edit_pass" placeholder="Password" type="password">
+    <input id="edit_pass" type="password" placeholder="Password">
     <button onclick="loadForEdit()">Load</button>
+
     <textarea id="edit_area" class="hidden"></textarea>
     <button id="save_btn" class="hidden" onclick="saveEdited()">Save</button>
-    <div id="editStatus"></div>
+
+    <div id="editStatus" style="margin-top:12px;"></div>
   </div>
 
 </div>
@@ -122,10 +167,15 @@ function openTab(tab){
   document.getElementById(tab+"Tab").classList.remove("hidden");
 }
 
+// GENERATE LOADSTRING
 function generate(){
-  const code = codeInput.value;
-  const pass = password.value;
-  if(!code || !pass) return alert("Fill all fields");
+  const code = document.getElementById("code").value;
+  const pass = document.getElementById("password").value;
+
+  if(!code || !pass){
+    alert("Fill all fields");
+    return;
+  }
 
   fetch("/save", {
     method:"POST",
@@ -133,26 +183,30 @@ function generate(){
     body:JSON.stringify({ code, pass })
   })
   .then(r=>r.json())
-  .then(d=>{
-    const url = location.origin + "/raw/" + d.id;
-    output.innerText = \`loadstring(game:HttpGet("\${url}"))()\`;
-    resultBox.style.display = "block";
+  .then(data=>{
+    const rawURL = location.origin + "/raw/" + data.id;
+    const load = \`loadstring(game:HttpGet("\${rawURL}"))()\`;
+
+    document.getElementById("resultBox").style.display = "block";
+    document.getElementById("output").innerText = load;
   });
 }
 
+// EDITING
 function loadForEdit(){
   const id = edit_id.value;
   const pass = edit_pass.value;
+
   fetch("/edit/load?id="+id+"&pass="+pass)
     .then(r=>r.text())
-    .then(t=>{
-      if(t.startsWith("ERR")){
-        editStatus.innerText = t;
+    .then(text=>{
+      if(text.startsWith("ERR")){
+        editStatus.innerText = text;
         return;
       }
       edit_area.classList.remove("hidden");
       save_btn.classList.remove("hidden");
-      edit_area.value = t;
+      edit_area.value = text;
       editStatus.innerText = "Loaded!";
     });
 }
@@ -168,9 +222,7 @@ function saveEdited(){
     body:JSON.stringify({ id, pass, code })
   })
   .then(r=>r.text())
-  .then(t=>{
-    editStatus.innerText = t;
-  });
+  .then(t=>{ editStatus.innerText = t; });
 }
 </script>
 
@@ -186,28 +238,28 @@ app.post("/save", (req,res)=>{
   res.json({ id });
 });
 
-// RAW — with password page
+// RAW — PASSWORD PAGE
 app.get("/raw/:id", (req,res)=>{
   const item = codes[req.params.id];
   if(!item) return res.status(404).send("Not found");
 
   const ua = req.get("User-Agent") || "";
 
-  // if not Roblox — show password page
   if(!ua.includes("Roblox")){
     return res.send(`
     <html><body style="background:#0f0f0f;color:white;display:flex;justify-content:center;align-items:center;height:100vh;">
     <form method="GET" action="/raw/${req.params.id}/check">
-      <input name="pass" type="password" placeholder="Password">
-      <button>Open</button>
-    </form></body></html>`);
+      <input name="pass" type="password" placeholder="Password" style="padding:10px;border-radius:10px;background:#222;color:white;">
+      <button style="margin-top:10px;padding:10px 20px;border:none;background:#7d4cff;color:white;border-radius:10px;">Open</button>
+    </form>
+    </body></html>`);
   }
 
   res.set("Content-Type","text/plain");
   res.send(item.code);
 });
 
-// RAW PASS CHECK
+// RAW CHECK
 app.get("/raw/:id/check", (req,res)=>{
   const item = codes[req.params.id];
   if(!item) return res.send("Not found");
