@@ -11,25 +11,18 @@ app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ======================================================
-// PASSWORD PROTECTED STORAGE
+//          NO OBFUSCATION — ONLY PASSWORD PROTECTION
 // ======================================================
 function protectLuau(src) {
 return `
 -- Protected by NyoaSS Obfuscator v1.0
+-- This file is password-protected through external loader.
 ${src}
 `;
 }
 
-// RANDOM KEY 8–15 DIGITS
-function generateKey() {
-    const len = Math.floor(Math.random() * 8) + 8; // 8–15
-    let out = "";
-    for (let i = 0; i < len; i++) out += Math.floor(Math.random() * 10);
-    return out;
-}
-
 // ======================================================
-// FRONTEND
+//     FRONTEND PAGE (OBFUSCATE REMOVED + COPY BUTTON)
 // ======================================================
 app.get("/", (req, res) => {
 res.send(`
@@ -69,11 +62,8 @@ button{width:100%;padding:14px;background:#7d4cff;border:none;border-radius:12px
 <div id="obf" class="card">
   <h2>Luau Obfuscator</h2>
   <textarea id="code" placeholder="Paste Luau..."></textarea>
-
-  <input id="password" placeholder="Password (8-15 numbers)">
-  <button onclick="makeKey()" style="background:#444">Generate Key</button>
+  <input id="password" placeholder="Protection Password">
   <button onclick="gen()">Protect</button>
-  <button onclick="genFree()" style="background:#3bba39">Open Without Password</button>
 
   <div id="out" class="result"></div>
   <button id="copyBtn" class="copyBtn" style="display:none" onclick="copyL()">Copy</button>
@@ -83,7 +73,7 @@ button{width:100%;padding:14px;background:#7d4cff;border:none;border-radius:12px
   <h2>Edit Script</h2>
 
   <input id="eid" placeholder="Script ID">
-  <input id="epass" placeholder="Password (if protected)">
+  <input id="epass" placeholder="Password">
   <button onclick="loadEdit()">Load Script</button>
 
   <textarea id="editBox" style="display:none"></textarea>
@@ -94,10 +84,8 @@ button{width:100%;padding:14px;background:#7d4cff;border:none;border-radius:12px
 
 <div id="info" class="card" style="display:none">
   <h2>Information</h2>
-  <p>NyoaSS obfuscator v1.0 allows:</p>
-  <p>- Password-protected scripts</p>
-  <p>- Open access scripts (no password)</p>
-  <p>- Online editing with secure storage</p>
+  <p>NyoaSS obfuscator v1.0 protects Luau code using external password-protected loader.</p>
+  <p>No obfuscation is used — only encrypted storage + password gate.</p>
 </div>
 
 <script>
@@ -111,65 +99,15 @@ function openTab(id){
 
 let lastL = "";
 
-// =============================
-// GENERATE RANDOM KEY
-// =============================
-function makeKey(){
-  fetch("/genkey")
-  .then(r=>r.json())
-  .then(d=>{
-    password.value = d.key;
-  });
-}
-
-// =============================
-// PROTECT WITH PASSWORD
-// =============================
 function gen(){
   const c = code.value;
   const p = password.value;
-
-  if(!c){ alert("Paste your script"); return; }
-  if(!p){ alert("Enter password"); return; }
-
-  if(p.length < 8 || p.length > 15){
-    alert("Password must be 8–15 characters");
-    return;
-  }
-
-  if(!/^[0-9]+$/.test(p)){
-    alert("Password must be ONLY numbers");
-    return;
-  }
+  if(!c || !p){ alert("Fill all fields"); return; }
 
   fetch("/save",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({code:c, pass:p})
-  })
-  .then(r=>r.json())
-  .then(data=>{
-    const raw = location.origin + "/raw/" + data.id;
-    lastL = \`loadstring(game:HttpGet("\${raw}"))()\`;
-
-    out.style.display="block";
-    out.innerText = lastL;
-
-    copyBtn.style.display="block";
-  });
-}
-
-// =============================
-// FREE ACCESS — NO PASSWORD
-// =============================
-function genFree(){
-  const c = code.value;
-  if(!c){ alert("Paste your script"); return; }
-
-  fetch("/save",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({code:c, pass:"FREE"})
   })
   .then(r=>r.json())
   .then(data=>{
@@ -223,65 +161,47 @@ function saveEdit(){
 });
 
 // ======================================================
-// BACKEND
+// SAVE (no obfuscation)
 // ======================================================
-app.get("/genkey",(req,res)=>{
-    res.json({ key: generateKey() });
-});
-
-// SAVE
 app.post("/save",(req,res)=>{
 const { code, pass } = req.body;
 const id = Math.random().toString(36).substring(2,10);
-
-if(pass === "FREE"){
-    codes[id] = { code, pass:"FREE" };
-} else {
-    codes[id] = { code: protectLuau(code), pass };
-}
-
+codes[id] = { code: protectLuau(code), pass };
 res.json({ id });
 });
 
+// ======================================================
 // GET
+// ======================================================
 app.get("/get",(req,res)=>{
 const { id, pass } = req.query;
 const item = codes[id];
 if(!item) return res.json({ ok:false });
-
-if(item.pass !== "FREE" && item.pass !== pass)
-    return res.json({ ok:false });
-
+if(item.pass !== pass) return res.json({ ok:false });
 res.json({ ok:true, code:item.code });
 });
 
+// ======================================================
 // UPDATE
+// ======================================================
 app.post("/update",(req,res)=>{
 const { id, pass, code } = req.body;
 const item = codes[id];
 if(!item) return res.json({ ok:false });
-
-if(item.pass !== "FREE" && item.pass !== pass)
-    return res.json({ ok:false });
-
-item.code = (item.pass === "FREE") ? code : protectLuau(code);
-
+if(item.pass !== pass) return res.json({ ok:false });
+item.code = protectLuau(code);
 res.json({ ok:true });
 });
 
-// RAW
+// ======================================================
+// RAW WITH PASSWORD PAGE
+// ======================================================
 app.get("/raw/:id",(req,res)=>{
 const item = codes[req.params.id];
 if(!item) return res.status(404).send("Not found");
-
-if(item.pass === "FREE"){
-    res.set("Content-Type","text/plain");
-    return res.send(item.code);
-}
-
 const ua = req.get("User-Agent") || "";
 if(!ua.includes("Roblox")){
-return res.send(\`
+return res.send(`
 <!DOCTYPE html><html><head><title>Password</title>
 <style>
 body{background:#0d0d0d;margin:0;color:white;font-family:Arial;
@@ -301,20 +221,20 @@ button{background:#7d4cff}
 </div>
 </body>
 </html>
-\`);
+`);
 }
-
 res.set("Content-Type","text/plain");
 res.send(item.code);
 });
 
-// CHECK PW
+// ======================================================
 app.get("/raw/:id/check",(req,res)=>{
 const item = codes[req.params.id];
 if(!item) return res.status(404).send("Not found");
-if(item.pass !== req.query.pass) return res.send("Wrong password");
+if(req.query.pass !== item.pass) return res.send("Wrong password");
 res.set("Content-Type","text/plain");
 res.send(item.code);
 });
 
+// ======================================================
 app.listen(PORT,()=>console.log("NyoaSS Server Running",PORT));
