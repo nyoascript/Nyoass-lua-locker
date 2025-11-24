@@ -4,12 +4,13 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const codes = {};
+const codes = {}; // В памяти храним коды и пароль
 
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 
+// --- Главная страница (frontend)
 app.get("/", (req, res) => {
     res.send(`<!DOCTYPE html>
 <html lang="ru">
@@ -48,19 +49,19 @@ button:active{transform:scale(0.97);opacity:.8;}
 function generate(){
   const code = document.getElementById("code").value;
   const pass = document.getElementById("password").value;
-  if(!code || !pass) return alert("Заполните всё!");
+  if(!code || !pass){ alert("Заполните всё!"); return; }
   fetch("/save", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
     body: JSON.stringify({code, pass})
   })
   .then(r=>r.json())
   .then(data=>{
     const url = location.origin + "/raw/" + data.id;
     document.getElementById("resultBox").classList.remove("hidden");
-    const link = document.getElementById("resultLink");
-    link.innerText = url;
-    link.href = url;
+    const linkEl = document.getElementById("resultLink");
+    linkEl.innerText = url;
+    linkEl.href = url;
   });
 }
 </script>
@@ -68,20 +69,49 @@ function generate(){
 </html>`);
 });
 
+// --- API для сохранения кода
 app.post("/save", (req, res) => {
     const { code, pass } = req.body;
-    const id = Math.random().toString(36).substring(2, 10);
+    const id = Math.random().toString(36).substring(2,10);
     codes[id] = { code, pass };
     res.json({ id });
 });
 
+// --- Страница RAW (Roblox или просмотр в браузере)
 app.get("/raw/:id", (req, res) => {
     const { id } = req.params;
     const item = codes[id];
-    if (!item) return res.status(404).send("Код не найден");
-    const userPass = req.query.pass;
-    if (userPass !== item.pass) return res.status(401).send("Неверный пароль");
-    res.set("Content-Type", "text/plain");
+    if(!item) return res.status(404).send("Код не найден");
+
+    const ua = req.get("User-Agent") || "";
+    // Если заходят через браузер (не Roblox) → показываем пароль
+    if(!ua.includes("Roblox")) {
+        return res.send(`<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Введите пароль</title></head>
+<body style="background:#0f0f0f;color:white;font-family:Arial;text-align:center;padding:50px;">
+<h2>🔒 Введите пароль чтобы получить код</h2>
+<form method="GET" action="/raw/${id}/check">
+<input type="password" name="pass" placeholder="Пароль" style="padding:12px;border-radius:10px;border:none;margin-top:12px;"><br>
+<button type="submit" style="margin-top:20px;padding:14px;background:#7d4cff;border:none;border-radius:12px;color:white;">Открыть код</button>
+</form>
+</body></html>`);
+    }
+
+    // Если запрос от Roblox → отдаем код напрямую
+    res.set("Content-Type","text/plain");
+    res.send(item.code);
+});
+
+// --- Проверка пароля при заходе через браузер
+app.get("/raw/:id/check", (req,res) => {
+    const { id } = req.params;
+    const item = codes[id];
+    if(!item) return res.status(404).send("Код не найден");
+
+    const pass = req.query.pass || "";
+    if(pass !== item.pass) return res.send("❌ Неверный пароль");
+
+    res.set("Content-Type","text/plain");
     res.send(item.code);
 });
 
