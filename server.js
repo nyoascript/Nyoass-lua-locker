@@ -4,13 +4,13 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const codes = {};
+const codes = {}; // память хранения кода и паролей
 
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ===== Главная страница =====
+// ===================== MAIN SITE =====================
 app.get("/", (req, res) => {
 res.send(`
 <!DOCTYPE html>
@@ -18,253 +18,255 @@ res.send(`
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NyoaSS Obfuscator</title>
+<title>NyoaSS Luau Obfuscator</title>
 
-<!-- Styles -->
 <style>
 body {
   margin:0; padding:0;
-  background:#0e0e0e;
-  font-family: Arial, sans-serif;
+  background:#0d0d0d;
   color:white;
-  animation: fadeIn .4s ease;
+  font-family: Arial, sans-serif;
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  animation: fadeIn .35s ease;
 }
 @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
 
-.nav {
-  width:100%;
-  background:#151515;
-  padding:15px 0;
-  display:flex;
-  justify-content:center;
-  position:sticky;
-  top:0;
-  box-shadow:0 0 12px rgba(0,0,0,.4);
-  z-index:99;
-}
-.nav-item {
-  margin:0 15px;
+.discord-btn {
+  position:fixed;
+  top:22px;
+  right:22px;
+  width:46px;
+  height:46px;
   cursor:pointer;
-  font-size:18px;
+  opacity:.85;
   transition:.2s;
 }
-.nav-item:hover {
-  color:#a974ff;
+.discord-btn:hover {
+  transform:scale(1.15);
+  opacity:1;
 }
 
-.container {
-  max-width:650px;
-  margin:40px auto;
-  padding:20px;
-}
 .card {
-  background:#1c1c1c;
-  border-radius:18px;
-  padding:25px;
-  box-shadow:0 0 18px rgba(125,76,255,.25);
-  animation: pop .25s ease;
+  background:#161616;
+  padding:35px;
+  width:92%;
+  max-width:600px;
+  border-radius:20px;
+  box-shadow:0 0 30px rgba(125,76,255,.3);
+  animation: pop .3s ease;
 }
-@keyframes pop { from{transform:scale(.95);opacity:0;} to{transform:scale(1);opacity:1;} }
+@keyframes pop { from{transform:scale(.95);} to{transform:scale(1);} }
+
+h1 {
+  text-align:center;
+  margin:0;
+  font-size:28px;
+  margin-bottom:10px;
+}
+
+.desc {
+  text-align:center;
+  font-size:14px;
+  margin-bottom:25px;
+  color:#bdbdbd;
+  line-height:1.4;
+}
 
 textarea, input {
   width:100%;
-  padding:12px;
-  margin-top:15px;
+  padding:14px;
   border:none;
   border-radius:12px;
-  background:#262626;
+  margin-top:14px;
+  background:#222;
   color:white;
 }
-textarea { height:160px; resize:none; }
-button {
-  width:100%; padding:14px;
-  margin-top:20px;
-  border:none;
-  border-radius:12px;
-  font-size:17px;
-  background:linear-gradient(135deg,#7d4cff,#b983ff);
-  color:white;
-  font-weight:bold;
-  cursor:pointer;
-  box-shadow:0 0 16px rgba(125,76,255,.4);
-  transition:.15s;
-}
-button:active { transform:scale(.97); opacity:0.85; }
+textarea { height:170px; resize:none; }
 
-.link-box {
-  margin-top:20px;
-  background:#111;
+button {
+  width:100%;
   padding:15px;
+  margin-top:20px;
+  background:#7d4cff;
+  border:none;
+  border-radius:14px;
+  color:white;
+  font-size:17px;
+  box-shadow:0 0 14px rgba(125,76,255,.5);
+  transition:.2s;
+  cursor:pointer;
+}
+button:hover { opacity:.9; }
+button:active { transform:scale(.97); }
+
+.result-box {
+  margin-top:25px;
+  padding:15px;
+  background:#111;
   border-radius:12px;
   word-break:break-all;
+  display:none;
 }
 
-.hidden { display:none; }
-
-/* Tab pages */
-.page { display:none; }
-.page.active { display:block; }
-
-.theme-switch { margin-top:20px; padding:12px; background:#222; border-radius:12px; cursor:pointer; }
+.small-title {
+  font-size:15px;
+  color:#c9c9c9;
+  margin-bottom:8px;
+  font-weight:bold;
+}
 </style>
 
 </head>
 <body>
 
-<div class="nav">
-  <div class="nav-item" onclick="openPage('home')">Home</div>
-  <div class="nav-item" onclick="openPage('api')">API</div>
-  <div class="nav-item" onclick="openPage('misc')">Misc</div>
-</div>
+<!-- Discord Icon -->
+<a href="https://discord.gg/WBYkWfPQC2" target="_blank">
+  <img class="discord-btn" src="https://upload.wikimedia.org/wikipedia/commons/9/98/Discord_logo.svg">
+</a>
 
-<div class="container">
+<div class="card">
 
-  <!-- Home -->
-  <div class="page active" id="home">
-    <div class="card">
-      <h2 style="text-align:center;">NyoaSS Obfuscator</h2>
-      <textarea id="code" placeholder="Paste your Lua / Luau code"></textarea>
-      <input id="password" type="text" placeholder="Password">
+  <h1>NyoaSS Luau Obfuscator</h1>
 
-      <button onclick="generate()">Create Link</button>
-
-      <div id="resultBox" class="link-box hidden">
-        <b>Your Loadstring:</b><br><br>
-        <span id="resultLink"></span>
-      </div>
-    </div>
+  <div class="desc">
+    Protects Luau scripts from stealing, dumping, unpacking, logic tracing,  
+    memory scanning, value spoofing and reverse‑engineering.
   </div>
 
-  <!-- API -->
-  <div class="page" id="api">
-    <div class="card">
-      <h2 style="text-align:center;">API</h2>
-      <p>Your Roblox executor can fetch raw code directly:</p>
-      <div class="link-box">
-        GET → /raw/:id  
-      </div>
-    </div>
-  </div>
+  <textarea id="code" placeholder="Paste your Luau script..."></textarea>
+  <input id="password" type="text" placeholder="Protection Password">
 
-  <!-- Misc -->
-  <div class="page" id="misc">
-    <div class="card">
-      <h2 style="text-align:center;">Misc</h2>
+  <button onclick="generate()">Generate Loadstring</button>
 
-      <div class="theme-switch" onclick="toggleTheme()">
-        Toggle Theme (Dark / Light)
-      </div>
-
-      <div class="theme-switch" onclick="copyDiscord()">
-        Copy Discord: nyoa.lua
-      </div>
-    </div>
+  <div id="resultBox" class="result-box">
+    <div class="small-title">Your Loadstring:</div>
+    <span id="output"></span>
   </div>
 
 </div>
 
 <script>
-// tabs
-function openPage(id){
-  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
-}
-
-// create loadstring
 function generate(){
   const code = document.getElementById("code").value;
   const pass = document.getElementById("password").value;
-  if(!code || !pass){ alert("Fill all fields"); return; }
+
+  if(!code || !pass){
+    alert("Fill all fields.");
+    return;
+  }
 
   fetch("/save", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({code, pass})
+    body: JSON.stringify({ code, pass })
   })
   .then(r=>r.json())
   .then(data=>{
-    const raw = location.origin + "/raw/" + data.id;
-    const result = 'loadstring(game:HttpGet("' + raw + '"))()';
+    const rawURL = location.origin + "/raw/" + data.id;
+    const load = \`loadstring(game:HttpGet("\${rawURL}"))()\`;
 
-    document.getElementById("resultBox").classList.remove("hidden");
-    document.getElementById("resultLink").innerText = result;
+    document.getElementById("output").innerText = load;
+    document.getElementById("resultBox").style.display = "block";
   });
-}
-
-// theme toggle
-function toggleTheme(){
-  if(document.body.style.background === "white"){
-    document.body.style.background="#0e0e0e";
-    document.body.style.color="white";
-  } else {
-    document.body.style.background="white";
-    document.body.style.color="black";
-  }
-}
-function copyDiscord(){
-  navigator.clipboard.writeText("nyoa.lua");
-  alert("Copied!");
 }
 </script>
 
-</body></html>
+</body>
+</html>
 `);
 });
 
-// ==== Save code ====
-app.post("/save", (req, res) => {
-    const { code, pass } = req.body;
-    const id = Math.random().toString(36).substr(2, 10);
-    codes[id] = { code, pass };
-    res.json({ id });
+// ===================== API: SAVE CODE =====================
+app.post("/save", (req,res) => {
+  const { code, pass } = req.body;
+  const id = Math.random().toString(36).substring(2,10);
+  codes[id] = { code, pass };
+  res.json({ id });
 });
 
-// ==== RAW output ====
-app.get("/raw/:id", (req, res) => {
-    const { id } = req.params;
-    const item = codes[id];
-    if (!item) return res.status(404).send("Not found");
+// ===================== RAW ENDPOINT =====================
+app.get("/raw/:id", (req,res) => {
+  const item = codes[req.params.id];
+  if (!item) return res.status(404).send("Not found");
 
-    const ua = req.get("User-Agent") || "";
+  const ua = req.get("User-Agent") || "";
 
-    if (!ua.includes("Roblox")) {
-        return res.send(`
+  if (!ua.includes("Roblox")) {
+    return res.send(`
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>Password</title>
 <style>
-body{background:#0f0f0f;color:white;font-family:Arial;padding:50px;text-align:center;}
-input{padding:12px;border:none;border-radius:12px;width:250px;background:#1c1c1c;color:white;}
-button{margin-top:20px;padding:12px 22px;background:#7d4cff;border:none;border-radius:12px;color:white;font-size:16px;}
-.card{background:#151515;padding:30px;border-radius:16px;display:inline-block;animation:fade .3s;}
-@keyframes fade{from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);}}
+body {
+  background:#0f0f0f;
+  color:white;
+  font-family:Arial;
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  margin:0;
+}
+.box {
+  background:#171717;
+  width:90%;
+  max-width:330px;
+  padding:30px;
+  border-radius:16px;
+  text-align:center;
+  box-shadow:0 0 25px rgba(125,76,255,.25);
+  animation:fadeIn .3s;
+}
+@keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+input {
+  width:100%;
+  padding:12px;
+  margin-top:14px;
+  border:none;
+  border-radius:10px;
+  background:#222;
+  color:white;
+}
+button {
+  padding:12px 20px;
+  margin-top:18px;
+  border:none;
+  background:#7d4cff;
+  color:white;
+  border-radius:12px;
+  width:100%;
+}
 </style>
 </head>
 <body>
-<div class="card">
-<h2>Enter Password</h2>
-<form method="GET" action="/raw/${id}/check">
-<input type="password" name="pass" placeholder="Password"><br>
+<div class="box">
+<h2>Password Required</h2>
+<form method="GET" action="/raw/${req.params.id}/check">
+<input type="password" name="pass" placeholder="Password">
 <button>Open</button>
 </form>
 </div>
-</body></html>`);
-    }
+</body></html>
+`);
+  }
 
-    res.set("Content-Type","text/plain");
-    res.send(item.code);
+  res.set("Content-Type","text/plain");
+  res.send(item.code);
 });
 
-// ==== Password check ====
+// ===================== PASSWORD CHECK =====================
 app.get("/raw/:id/check", (req,res) => {
-    const { id } = req.params;
-    const item = codes[id];
-    if(!item) return res.status(404).send("Not found");
+  const item = codes[req.params.id];
+  if (!item) return res.status(404).send("Not found");
 
-    if((req.query.pass || "") !== item.pass)
-        return res.send("Wrong password");
+  if ((req.query.pass || "") !== item.pass)
+    return res.send("Wrong password");
 
-    res.set("Content-Type","text/plain");
-    res.send(item.code);
+  res.set("Content-Type", "text/plain");
+  res.send(item.code);
 });
 
+// ===================== START =====================
 app.listen(PORT, () => console.log("Server running on port", PORT));
