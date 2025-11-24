@@ -11,62 +11,25 @@ app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ======================================================
-//            ADVANCED STRONGER OBFUSCATION
+// PASSWORD PROTECTED STORAGE
 // ======================================================
-function obfuscateLuau(src) {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    const randStr = (len) => {
-        let s = "";
-        for(let i = 0; i < len; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
-        return s;
-    };
-    const randNum = () => Math.floor(Math.random() * 899999) + 100000;
+function protectLuau(src) {
+return `
+-- Protected by NyoaSS Obfuscator v1.0
+${src}
+`;
+}
 
-    const strings = [];
-    for(let i = 0; i < 44; i++) {
-        let fake = "";
-        for(let j = 0; j < 12; j++) fake += "\\" + randNum();
-        strings.push(`"${fake}"`);
-    }
-    strings.push(`"${src.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")}"`);
-
-    for(let i = strings.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [strings[i], strings[j]] = [strings[j], strings[i]];
-    }
-
-    const realIndex = strings.length - 1;
-    const offsetA = randNum();
-    const offsetB = randNum();
-
-    let junk = "";
-    for(let i = 0; i < 38; i++) {
-        junk += `local ${randStr(11)} = function() return ${randNum()} end `;
-    }
-
-    return `local t={${strings.join(",")}}
-${junk}
-local function g(i) return t[i+${offsetA}-${offsetB}] end
-return loadstring(g(${realIndex - 43}))()`;
+// RANDOM KEY 8–15 DIGITS
+function generateKey() {
+    const len = Math.floor(Math.random() * 8) + 8; // 8–15
+    let out = "";
+    for (let i = 0; i < len; i++) out += Math.floor(Math.random() * 10);
+    return out;
 }
 
 // ======================================================
-//                    DEOBFUSCATOR
-// ======================================================
-function deobfuscateLuau(code){
-    try{
-        const match = code.match(/local t=\{([^}]+)\}/);
-        if(!match) return "// Deobfuscation failed";
-        const parts = match[1].split(",").map(s => s.trim().replace(/^"|"$/g, ""));
-        const real = parts.find(p => !/^(\\+\\d+)+$/.test(p));
-        return real ? real.replace(/\\"/g, '"').replace(/\\\\/g, '\\') : "// Deobfuscation failed";
-    }catch(e){
-        return "// Deobfuscation failed";
-    }
-}
-
-// ======================================================
-//                 FRONTEND PAGE
+// FRONTEND
 // ======================================================
 app.get("/", (req, res) => {
 res.send(`
@@ -89,6 +52,7 @@ button{width:100%;padding:14px;background:#7d4cff;border:none;border-radius:12px
 .result{margin-top:20px;background:#111;padding:14px;border-radius:12px;word-break:break-all;display:none}
 #discord{position:fixed;left:15px;bottom:15px;color:white;text-decoration:none;padding:10px 14px;background:#5865F2;border-radius:10px;font-weight:bold;opacity:.85}
 #discord:hover{opacity:1}
+.copyBtn{margin-top:10px;background:#444;}
 </style>
 </head>
 
@@ -105,29 +69,35 @@ button{width:100%;padding:14px;background:#7d4cff;border:none;border-radius:12px
 <div id="obf" class="card">
   <h2>Luau Obfuscator</h2>
   <textarea id="code" placeholder="Paste Luau..."></textarea>
-  <input id="password" placeholder="Protection Password">
-  <button onclick="gen()">Generate</button>
+
+  <input id="password" placeholder="Password (8-15 numbers)">
+  <button onclick="makeKey()" style="background:#444">Generate Key</button>
+  <button onclick="gen()">Protect</button>
+  <button onclick="genFree()" style="background:#3bba39">Open Without Password</button>
+
   <div id="out" class="result"></div>
+  <button id="copyBtn" class="copyBtn" style="display:none" onclick="copyL()">Copy</button>
 </div>
 
 <div id="edit" class="card" style="display:none">
   <h2>Edit Script</h2>
 
   <input id="eid" placeholder="Script ID">
-  <input id="epass" placeholder="Password">
+  <input id="epass" placeholder="Password (if protected)">
   <button onclick="loadEdit()">Load Script</button>
 
   <textarea id="editBox" style="display:none"></textarea>
   <button id="saveBtn" style="display:none" onclick="saveEdit()">Save</button>
-  <button id="deobfBtn" style="display:none;background:#444" onclick="deobf()">Deobfuscate</button>
 
   <div id="editStatus"></div>
 </div>
 
 <div id="info" class="card" style="display:none">
   <h2>Information</h2>
-  <p>NyoaSS obfuscator v1.0 protects Luau code from dumping, reading, modification and spoofing.</p>
-  <p>Provides encoded strings, anti tamper, random identifiers and fake VM layers.</p>
+  <p>NyoaSS obfuscator v1.0 allows:</p>
+  <p>- Password-protected scripts</p>
+  <p>- Open access scripts (no password)</p>
+  <p>- Online editing with secure storage</p>
 </div>
 
 <script>
@@ -139,10 +109,38 @@ function openTab(id){
  event.target.classList.add("active");
 }
 
+let lastL = "";
+
+// =============================
+// GENERATE RANDOM KEY
+// =============================
+function makeKey(){
+  fetch("/genkey")
+  .then(r=>r.json())
+  .then(d=>{
+    password.value = d.key;
+  });
+}
+
+// =============================
+// PROTECT WITH PASSWORD
+// =============================
 function gen(){
   const c = code.value;
   const p = password.value;
-  if(!c || !p){ alert("Fill all fields"); return; }
+
+  if(!c){ alert("Paste your script"); return; }
+  if(!p){ alert("Enter password"); return; }
+
+  if(p.length < 8 || p.length > 15){
+    alert("Password must be 8–15 characters");
+    return;
+  }
+
+  if(!/^[0-9]+$/.test(p)){
+    alert("Password must be ONLY numbers");
+    return;
+  }
 
   fetch("/save",{
     method:"POST",
@@ -152,10 +150,42 @@ function gen(){
   .then(r=>r.json())
   .then(data=>{
     const raw = location.origin + "/raw/" + data.id;
-    const l = `loadstring(game:HttpGet("${raw}"))()`;
+    lastL = \`loadstring(game:HttpGet("\${raw}"))()\`;
+
     out.style.display="block";
-    out.innerText = l;
+    out.innerText = lastL;
+
+    copyBtn.style.display="block";
   });
+}
+
+// =============================
+// FREE ACCESS — NO PASSWORD
+// =============================
+function genFree(){
+  const c = code.value;
+  if(!c){ alert("Paste your script"); return; }
+
+  fetch("/save",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({code:c, pass:"FREE"})
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    const raw = location.origin + "/raw/" + data.id;
+    lastL = \`loadstring(game:HttpGet("\${raw}"))()\`;
+
+    out.style.display="block";
+    out.innerText = lastL;
+
+    copyBtn.style.display="block";
+  });
+}
+
+function copyL(){
+  navigator.clipboard.writeText(lastL);
+  alert("Copied!");
 }
 
 function loadEdit(){
@@ -166,7 +196,6 @@ function loadEdit(){
 
     editBox.style.display="block";
     saveBtn.style.display="block";
-    deobfBtn.style.display="block";
     editBox.value = d.code;
   });
 }
@@ -187,18 +216,6 @@ function saveEdit(){
   });
 }
 
-function deobf(){
-  fetch("/deobf",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ code: editBox.value })
-  })
-  .then(r=>r.json())
-  .then(d=>{
-    editBox.value = d.code;
-  });
-}
-
 </script>
 </body>
 </html>
@@ -206,56 +223,65 @@ function deobf(){
 });
 
 // ======================================================
-// SAVE
+// BACKEND
 // ======================================================
+app.get("/genkey",(req,res)=>{
+    res.json({ key: generateKey() });
+});
+
+// SAVE
 app.post("/save",(req,res)=>{
 const { code, pass } = req.body;
 const id = Math.random().toString(36).substring(2,10);
-const obf = obfuscateLuau(code);
-codes[id] = { code: obf, pass };
+
+if(pass === "FREE"){
+    codes[id] = { code, pass:"FREE" };
+} else {
+    codes[id] = { code: protectLuau(code), pass };
+}
+
 res.json({ id });
 });
 
-// ======================================================
 // GET
-// ======================================================
 app.get("/get",(req,res)=>{
 const { id, pass } = req.query;
 const item = codes[id];
 if(!item) return res.json({ ok:false });
-if(item.pass !== pass) return res.json({ ok:false });
+
+if(item.pass !== "FREE" && item.pass !== pass)
+    return res.json({ ok:false });
+
 res.json({ ok:true, code:item.code });
 });
 
-// ======================================================
 // UPDATE
-// ======================================================
 app.post("/update",(req,res)=>{
 const { id, pass, code } = req.body;
 const item = codes[id];
 if(!item) return res.json({ ok:false });
-if(item.pass !== pass) return res.json({ ok:false });
-item.code = obfuscateLuau(code);
+
+if(item.pass !== "FREE" && item.pass !== pass)
+    return res.json({ ok:false });
+
+item.code = (item.pass === "FREE") ? code : protectLuau(code);
+
 res.json({ ok:true });
 });
 
-// ======================================================
-// DEOBF API
-// ======================================================
-app.post("/deobf",(req,res)=>{
-const { code } = req.body;
-res.json({ code: deobfuscateLuau(code) });
-});
-
-// ======================================================
-// RAW WITH PASSWORD PAGE
-// ======================================================
+// RAW
 app.get("/raw/:id",(req,res)=>{
 const item = codes[req.params.id];
 if(!item) return res.status(404).send("Not found");
+
+if(item.pass === "FREE"){
+    res.set("Content-Type","text/plain");
+    return res.send(item.code);
+}
+
 const ua = req.get("User-Agent") || "";
 if(!ua.includes("Roblox")){
-return res.send(`
+return res.send(\`
 <!DOCTYPE html><html><head><title>Password</title>
 <style>
 body{background:#0d0d0d;margin:0;color:white;font-family:Arial;
@@ -275,20 +301,20 @@ button{background:#7d4cff}
 </div>
 </body>
 </html>
-`);
+\`);
 }
+
 res.set("Content-Type","text/plain");
 res.send(item.code);
 });
 
-// ======================================================
+// CHECK PW
 app.get("/raw/:id/check",(req,res)=>{
 const item = codes[req.params.id];
 if(!item) return res.status(404).send("Not found");
-if(req.query.pass !== item.pass) return res.send("Wrong password");
+if(item.pass !== req.query.pass) return res.send("Wrong password");
 res.set("Content-Type","text/plain");
 res.send(item.code);
 });
 
-// ======================================================
 app.listen(PORT,()=>console.log("NyoaSS Server Running",PORT));
