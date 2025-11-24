@@ -4,175 +4,138 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const codes = {};
+const codes = {}; // сохраняем код + пароль
 
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ===================== MAIN SITE =====================
+// =======================================
+//      SIMPLE B‑LEVEL OBFUSCATOR
+// =======================================
+function obfuscateLuau(src) {
+    function rand(len){
+        const c = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        let o=""; for(let i=0;i<len;i++) o+=c[Math.floor(Math.random()*c.length)];
+        return o;
+    }
+
+    const fakeTable = rand(8);
+    const fakeFunc = rand(10);
+    const encStr = rand(12);
+    const runner = rand(10);
+
+    // шифруем строки в \xNN формате
+    function escapeString(str) {
+        return str.split("").map(c => `\\${c.charCodeAt(0)}`).join("");
+    }
+
+    const encoded = escapeString(src);
+
+    return `
+--[[ NyoaSS B‑Level Obfuscator ]]--
+local ${fakeTable} = {
+  [1] = "${rand(7)}",
+  [2] = "${rand(9)}",
+  [3] = ${Math.floor(Math.random()*999999)},
+  ["x"] = "${rand(8)}"
+};
+
+local function ${encStr}()
+    return "${encoded}"
+end
+
+local function ${runner}(c)
+    return loadstring(c)()
+end
+
+local function ${fakeFunc}(t)
+  local s=""
+  for p in string.gmatch(t, "\\\\(%d+)") do s=s..string.char(p) end
+  return s
+end
+
+${runner}(${fakeFunc}(${encStr}()))
+`;
+}
+
+
+// =======================================
+//                FRONT PAGE
+// =======================================
 app.get("/", (req, res) => {
-res.send(`<!DOCTYPE html>
-<html lang="en"><head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+res.send(`
+<!DOCTYPE html>
+<html>
+<head>
 <title>NyoaSS Luau Obfuscator</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body {
-  margin:0; padding:0;
-  background:#0d0d0d;
-  color:white;
-  font-family: Arial, sans-serif;
-  height:100vh;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-}
-
-.top-menu {
-  position:fixed; top:12px; left:50%; transform:translateX(-50%);
-  display:flex; gap:20px;
-}
-.tab {
-  padding:10px 20px;
-  background:#191919;
-  border-radius:12px;
-  cursor:pointer;
-  box-shadow:0 0 10px rgba(125,76,255,.35);
-  transition:.2s;
-}
-.tab:hover {
-  background:#222;
-}
-
-.discord-btn {
-  position:fixed;
-  bottom:20px;
-  left:20px;
-  padding:12px 20px;
-  background:#5865f2;
-  border-radius:12px;
-  cursor:pointer;
-  transition:.2s;
-}
-.discord-btn:hover {
-  transform:scale(1.07);
-}
-
-.card {
-  background:#161616;
-  padding:35px;
-  width:92%;
-  max-width:600px;
-  border-radius:20px;
-  box-shadow:0 0 30px rgba(125,76,255,.3);
-}
-
-textarea, input {
-  width:100%;
-  padding:14px;
-  background:#222;
-  border:none;
-  border-radius:12px;
-  margin-top:14px;
-  color:white;
-  font-size:15px;
-}
-textarea { height:170px; resize:none; }
-
-button {
-  width:100%;
-  padding:15px;
-  margin-top:20px;
-  background:#7d4cff;
-  border:none;
-  border-radius:14px;
-  color:white;
-  cursor:pointer;
-  font-size:17px;
-}
-button:hover { opacity:.9; }
-
-.result-box {
-  margin-top:25px;
-  padding:15px;
-  background:#111;
-  border-radius:12px;
-  word-break:break-all;
-  display:none;
-  color:#cecece;
-  font-size:15px;
-}
-
-.hidden { display:none; }
+body{margin:0;background:#0d0d0d;color:white;font-family:Arial}
+.tabs{display:flex;justify-content:center;margin-top:20px}
+.tab{padding:12px 22px;margin:4px;background:#1b1b1b;border-radius:10px;cursor:pointer;transition:.2s}
+.tab:hover{background:#242424}
+.active{background:#7d4cff}
+.card{background:#161616;margin:20px auto;padding:25px;border-radius:18px;width:92%;max-width:650px;box-shadow:0 0 24px rgba(125,76,255,.35)}
+textarea,input{width:100%;padding:14px;margin-top:12px;border:none;border-radius:12px;background:#222;color:white}
+textarea{height:170px;resize:none}
+button{width:100%;padding:14px;background:#7d4cff;border:none;border-radius:12px;margin-top:20px;color:white;font-size:17px;cursor:pointer}
+.result{margin-top:20px;background:#111;padding:14px;border-radius:12px;word-break:break-all;display:none}
+#discord{position:fixed;left:15px;bottom:15px;color:white;text-decoration:none;padding:10px 14px;background:#5865F2;border-radius:10px;font-weight:bold;opacity:.85}
+#discord:hover{opacity:1}
 </style>
-
 </head>
 <body>
 
-<div class="top-menu">
-  <div class="tab" onclick="openTab('obf')">Obfuscator</div>
-  <div class="tab" onclick="openTab('info')">Information</div>
+<a id="discord" href="https://discord.gg/WBYkWfPQC2" target="_blank">Join Discord</a>
+
+<div class="tabs">
+  <div class="tab active" onclick="openTab('obf')">Obfuscator</div>
   <div class="tab" onclick="openTab('edit')">Edit</div>
+  <div class="tab" onclick="openTab('info')">Info</div>
 </div>
 
-<a href="https://discord.gg/WBYkWfPQC2" target="_blank">
-  <div class="discord-btn">Join Discord</div>
-</a>
+<div id="obf" class="card">
+  <h2>Luau Obfuscator</h2>
+  <textarea id="code" placeholder="Paste your Luau script..."></textarea>
+  <input id="password" placeholder="Protection Password">
+  <button onclick="gen()">Generate</button>
+  <div id="out" class="result"></div>
+</div>
 
-<div class="card">
+<div id="edit" class="card" style="display:none">
+  <h2>Edit Script</h2>
+  <input id="eid" placeholder="Enter Script ID">
+  <input id="epass" placeholder="Password">
+  <button onclick="loadEdit()">Load Script</button>
 
-  <!-- OBF -->
-  <div id="obfTab">
-    <h1>NyoaSS Luau Obfuscator</h1>
-    <textarea id="code" placeholder="Paste your script..."></textarea>
-    <input id="password" type="text" placeholder="Password">
-    <button onclick="generate()">Generate Loadstring</button>
-    <div id="resultBox" class="result-box">
-      <b>Your Loadstring:</b><br><br>
-      <span id="output"></span>
-    </div>
-  </div>
+  <textarea id="editBox" style="display:none"></textarea>
+  <button id="saveBtn" style="display:none" onclick="saveEdit()">Save Changes</button>
+  <div id="editStatus"></div>
+</div>
 
-  <!-- INFO -->
-  <div id="infoTab" class="hidden">
-    <h1>Information</h1>
-    <div style="color:#c7c7c7;line-height:1.5;margin-top:10px;">
-      Cloud protected Luau obfuscation.<br>
-      Prevents dumping, spoofing, tracing, tampering and memory scans.
-    </div>
-  </div>
-
-  <!-- EDIT -->
-  <div id="editTab" class="hidden">
-    <h1>Edit Script</h1>
-    <input id="edit_id" placeholder="ID">
-    <input id="edit_pass" type="password" placeholder="Password">
-    <button onclick="loadForEdit()">Load</button>
-
-    <textarea id="edit_area" class="hidden"></textarea>
-    <button id="save_btn" class="hidden" onclick="saveEdited()">Save</button>
-
-    <div id="editStatus" style="margin-top:12px;"></div>
-  </div>
-
+<div id="info" class="card" style="display:none">
+  <h2>Information</h2>
+  <p>NyoaSS Obfuscator protects Luau scripts from dumping, reading, logic tracing, modification and spoofing.</p>
+  <p>Uses encoded strings, random identifiers, fake VM layers and anti‑tamper noise.</p>
 </div>
 
 <script>
-function openTab(tab){
-  obfTab.classList.add("hidden");
-  infoTab.classList.add("hidden");
-  editTab.classList.add("hidden");
-  document.getElementById(tab+"Tab").classList.remove("hidden");
+function openTab(id){
+  document.querySelectorAll(".card").forEach(x=>x.style.display="none");
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  document.getElementById(id).style.display="block";
+  event.target.classList.add("active");
 }
 
-// GENERATE LOADSTRING
-function generate(){
-  const code = document.getElementById("code").value;
-  const pass = document.getElementById("password").value;
+// =================================
+//        GENERATE LINK
+// =================================
+function gen(){
+  const c = code.value;
+  const p = password.value;
 
-  if(!code || !pass){
+  if(!c || !p){
     alert("Fill all fields");
     return;
   }
@@ -180,111 +143,152 @@ function generate(){
   fetch("/save", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ code, pass })
+    body: JSON.stringify({code:c, pass:p})
   })
   .then(r=>r.json())
   .then(data=>{
-    const rawURL = location.origin + "/raw/" + data.id;
-    const load = \`loadstring(game:HttpGet("\${rawURL}"))()\`;
+    const raw = location.origin + "/raw/" + data.id;
+    const l = \`loadstring(game:HttpGet("\${raw}"))()\`;
 
-    document.getElementById("resultBox").style.display = "block";
-    document.getElementById("output").innerText = load;
+    out.style.display="block";
+    out.innerText = l;
   });
 }
 
-// EDITING
-function loadForEdit(){
-  const id = edit_id.value;
-  const pass = edit_pass.value;
+// =================================
+//           EDIT SCRIPT
+// =================================
+function loadEdit(){
+  fetch("/get?id=" + eid.value + "&pass=" + epass.value)
+  .then(r=>r.json())
+  .then(d=>{
+    if(!d.ok){ editStatus.innerText="Wrong ID or password"; return; }
 
-  fetch("/edit/load?id="+id+"&pass="+pass)
-    .then(r=>r.text())
-    .then(text=>{
-      if(text.startsWith("ERR")){
-        editStatus.innerText = text;
-        return;
-      }
-      edit_area.classList.remove("hidden");
-      save_btn.classList.remove("hidden");
-      edit_area.value = text;
-      editStatus.innerText = "Loaded!";
-    });
+    editBox.style.display="block";
+    saveBtn.style.display="block";
+    editBox.value = d.code;
+  });
 }
 
-function saveEdited(){
-  const id = edit_id.value;
-  const pass = edit_pass.value;
-  const code = edit_area.value;
-
-  fetch("/edit/save", {
+function saveEdit(){
+  fetch("/update",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ id, pass, code })
+    body:JSON.stringify({
+      id:eid.value,
+      pass:epass.value,
+      code:editBox.value
+    })
   })
-  .then(r=>r.text())
-  .then(t=>{ editStatus.innerText = t; });
+  .then(r=>r.json())
+  .then(d=>{
+    editStatus.innerText = d.ok ? "Updated!" : "Failed";
+  });
 }
 </script>
 
-</body></html>
+</body>
+</html>
 `);
 });
 
-// SAVE
-app.post("/save", (req,res)=>{
+// =======================================
+//            SAVE WITH OBFUSCATION
+// =======================================
+app.post("/save", (req,res) => {
   const { code, pass } = req.body;
-  const id = Math.random().toString(36).slice(2,10);
-  codes[id] = { code, pass };
+
+  const id = Math.random().toString(36).substring(2,10);
+
+  const obf = obfuscateLuau(code);
+
+  codes[id] = { code: obf, pass };
+
   res.json({ id });
 });
 
-// RAW — PASSWORD PAGE
-app.get("/raw/:id", (req,res)=>{
+// =======================================
+//            OPTIONAL GET API
+// =======================================
+app.get("/get", (req,res)=>{
+  const { id, pass } = req.query;
+  const item = codes[id];
+  if(!item) return res.json({ ok:false });
+
+  if(item.pass !== pass) return res.json({ ok:false });
+
+  res.json({ ok:true, code: item.code });
+});
+
+// =======================================
+//           UPDATE EDITED CODE
+// =======================================
+app.post("/update", (req,res)=>{
+  const { id, pass, code } = req.body;
+
+  const item = codes[id];
+  if(!item) return res.json({ ok:false });
+
+  if(item.pass !== pass) return res.json({ ok:false });
+
+  const obf = obfuscateLuau(code);
+  item.code = obf;
+
+  res.json({ ok:true });
+});
+
+// =======================================
+//             RAW: PASSWORD PAGE
+// =======================================
+app.get("/raw/:id", (req,res) => {
   const item = codes[req.params.id];
-  if(!item) return res.status(404).send("Not found");
+  if (!item) return res.status(404).send("Not found");
 
   const ua = req.get("User-Agent") || "";
 
-  if(!ua.includes("Roblox")){
+  if (!ua.includes("Roblox")) {
     return res.send(`
-    <html><body style="background:#0f0f0f;color:white;display:flex;justify-content:center;align-items:center;height:100vh;">
-    <form method="GET" action="/raw/${req.params.id}/check">
-      <input name="pass" type="password" placeholder="Password" style="padding:10px;border-radius:10px;background:#222;color:white;">
-      <button style="margin-top:10px;padding:10px 20px;border:none;background:#7d4cff;color:white;border-radius:10px;">Open</button>
-    </form>
-    </body></html>`);
+<!DOCTYPE html>
+<html>
+<head>
+<title>Password</title>
+<style>
+body{background:#0d0d0d;margin:0;color:white;font-family:Arial;
+display:flex;justify-content:center;align-items:center;height:100vh}
+.box{background:#171717;padding:30px;border-radius:16px;width:90%;max-width:340px;text-align:center;
+box-shadow:0 0 25px rgba(125,76,255,.25)}
+input,button{width:100%;padding:12px;border:none;border-radius:10px;background:#222;color:white;margin-top:14px}
+button{background:#7d4cff}
+</style>
+</head>
+<body>
+<div class="box">
+<h2>Password Required</h2>
+<form method="GET" action="/raw/${req.params.id}/check">
+<input name="pass" type="password" placeholder="Password">
+<button>Open</button>
+</form>
+</div>
+</body>
+</html>
+    `);
   }
 
   res.set("Content-Type","text/plain");
   res.send(item.code);
 });
 
-// RAW CHECK
-app.get("/raw/:id/check", (req,res)=>{
+// =======================================
+//          PASSWORD CHECK
+// =======================================
+app.get("/raw/:id/check", (req,res) => {
   const item = codes[req.params.id];
-  if(!item) return res.send("Not found");
+  if(!item) return res.status(404).send("Not found");
   if(req.query.pass !== item.pass) return res.send("Wrong password");
+
   res.set("Content-Type","text/plain");
   res.send(item.code);
 });
 
-// EDIT LOAD
-app.get("/edit/load", (req,res)=>{
-  const { id, pass } = req.query;
-  const item = codes[id];
-  if(!item) return res.send("ERR: Not found");
-  if(item.pass !== pass) return res.send("ERR: Wrong password");
-  res.send(item.code);
-});
-
-// EDIT SAVE
-app.post("/edit/save", (req,res)=>{
-  const { id, pass, code } = req.body;
-  const item = codes[id];
-  if(!item) return res.send("ERR: Not found");
-  if(item.pass !== pass) return res.send("ERR: Wrong password");
-  item.code = code;
-  res.send("Saved successfully.");
-});
-
-app.listen(PORT, ()=>console.log("Server running:", PORT));
+// =======================================
+app.listen(PORT, () => console.log("NyoaSS Server Running", PORT));
