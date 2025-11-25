@@ -22,7 +22,7 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Anti‑Spam: 1 запрос в 800 ms
+// Anti-Spam: 1 запрос в 800 ms
 const rateLimitMap = {};
 app.use((req, res, next) => {
     const ip = req.ip;
@@ -61,7 +61,29 @@ res.send(`
 <title>NyoaSS Luau Obfuscator</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body{margin:0;background:#0d0d0d;color:white;font-family:Arial;height:100vh;display:flex;align-items:center;justify-content:center}
+body{margin:0;background:#0d0d0d;color:white;font-family:Arial}
+
+.tabs {
+  width:100%;
+  display:flex;
+  background:#161616;
+  border-bottom:2px solid #222;
+}
+.tab {
+  padding:15px 20px;
+  cursor:pointer;
+  flex:1;
+  text-align:center;
+  background:#161616;
+  color:#aaa;
+  transition:0.2s;
+}
+.tab:hover { background:#1f1f1f; }
+.tab.active { color:white; background:#7d4cff; }
+
+.page { display:none; padding:20px; }
+.page.active { display:block; }
+
 input,textarea{width:100%;padding:12px;margin-top:10px;border:none;border-radius:10px;background:#222;color:white}
 textarea{height:150px}
 button{width:100%;padding:12px;margin-top:15px;border:none;background:#7d4cff;border-radius:10px;color:white;font-size:17px;cursor:pointer}
@@ -71,6 +93,13 @@ button{width:100%;padding:12px;margin-top:15px;border:none;background:#7d4cff;bo
 </head>
 <body>
 
+<div class="tabs">
+  <div class="tab active" onclick="openTab(0)">Obfuscator</div>
+  <div class="tab" onclick="openTab(1)">Edit</div>
+  <div class="tab" onclick="openTab(2)">About</div>
+</div>
+
+<div id="page0" class="page active">
 <div class="card">
 <h2>NyoaSS Luau Obfuscator</h2>
 
@@ -80,8 +109,11 @@ button{width:100%;padding:12px;margin-top:15px;border:none;background:#7d4cff;bo
 <button onclick="gen()">Generate</button>
 
 <div id="res" class="res"></div>
+</div>
+</div>
 
-<br>
+<div id="page1" class="page">
+<div class="card">
 <h3>Edit Script</h3>
 <input id="edit_id" placeholder="Script ID">
 <input id="edit_pass" placeholder="Password">
@@ -89,10 +121,22 @@ button{width:100%;padding:12px;margin-top:15px;border:none;background:#7d4cff;bo
 
 <textarea id="edit_area" style="display:none"></textarea>
 <button id="save_btn" style="display:none" onclick="saveEdit()">Save</button>
+</div>
+</div>
 
+<div id="page2" class="page">
+<div class="card">
+<h2>About</h2>
+<p>NyoaSS | Luau Locker / Obfuscator<br>Made for Roblox Script Protection</p>
+</div>
 </div>
 
 <script>
+function openTab(i){
+  document.querySelectorAll(".tab").forEach((t,n)=>t.classList.toggle("active",n===i));
+  document.querySelectorAll(".page").forEach((p,n)=>p.classList.toggle("active",n===i));
+}
+
 function gen(){
     const c = code.value;
     const p = password.value;
@@ -177,14 +221,14 @@ if(!item) return res.status(404).send("Not found");
 const ua = req.get("User-Agent") || "";
 
 if(!ua.includes("Roblox")){
-return res.send(`
+return res.send(\`
 <html><body style="background:#000;color:white;display:flex;justify-content:center;align-items:center;height:100vh;">
 <form method="GET" action="/raw/${req.params.id}/check">
 <input name="pass" type="password" placeholder="Password" style="padding:10px;border-radius:10px;background:#222;color:white;">
 <button style="margin-top:10px;padding:10px 20px;border:none;background:#7d4cff;color:white;border-radius:10px;">Open</button>
 </form>
 </body></html>
-`);
+\`);
 }
 
 res.set("Content-Type","text/plain");
@@ -253,14 +297,14 @@ body{background:#0d0d0d;color:white;font-family:Arial;padding:20px}
 `;
 
 securityLogs.forEach(l=>{
-    html += `
+    html += \`
     <div style="margin-bottom:10px">
-    <b>Time:</b> ${l.time}<br>
-    <b>IP:</b> ${l.ip}<br>
-    <b>User-Agent:</b> ${l.ua}<br>
-    <b>Path:</b> ${l.path}<br>
+    <b>Time:</b> \${l.time}<br>
+    <b>IP:</b> \${l.ip}<br>
+    <b>User-Agent:</b> \${l.ua}<br>
+    <b>Path:</b> \${l.path}<br>
     <hr style="border-color:#333">
-    </div>`;
+    </div>\`;
 });
 
 html += "</div></body></html>";
