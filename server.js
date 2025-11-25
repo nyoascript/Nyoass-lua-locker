@@ -1,201 +1,272 @@
-// ===========================
-// NyoaSS
-// ===========================
-
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const fs = require("fs");
-const rateLimit = require("express-rate-limit");
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const ADMIN_KEY = "SlivkineepyScripts"
+// ===========================
+//     ADMIN KEY
+// ===========================
+const ADMIN_KEY = "SlivkineepyScripts";
 
-// ================ STORAGE ================
+// ===========================
+//      MEMORY DATABASE
+// ===========================
 const codes = {};
-function loadLogs() {
-    try { return JSON.parse(fs.readFileSync("logs.json")); }
-    catch { return []; }
-}
-function saveLogs(logs) {
-    fs.writeFileSync("logs.json", JSON.stringify(logs, null, 2));
-}
-function addLog(action, ua) {
-    const logs = loadLogs();
-    logs.push({
-        time: new Date().toISOString(),
-        device: ua || "unknown",
-        action
-    });
-    saveLogs(logs);
-}
+const securityLogs = [];
 
-// ================ ANTI-SPAM ================
-const limit = rateLimit({
-    windowMs: 10 * 1000, // 10 sec
-    max: 5,
-    message: "Too many requests. Slow down."
-});
-app.use(limit);
-
-// ================ BASE CONFIG ================
+// ===========================
+//      MIDDLEWARE
+// ===========================
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ===================== MAIN FRONT-END =====================
-app.get("/", (req, res) => {
-addLog("OPEN_MAIN", req.get("User-Agent"));
+// Anti‑Spam: 1 запрос в 800 ms
+const rateLimitMap = {};
+app.use((req, res, next) => {
+    const ip = req.ip;
+    const now = Date.now();
 
-res.send(`<!DOCTYPE html>
-<html><head>
-<meta charset="UTF-8">
+    if (rateLimitMap[ip] && now - rateLimitMap[ip] < 800) {
+        return res.status(429).send("Too many requests");
+    }
+
+    rateLimitMap[ip] = now;
+    next();
+});
+
+// SECURITY LOGGER
+function logSecurity(req) {
+    securityLogs.push({
+        time: new Date().toISOString(),
+        ip: req.ip,
+        ua: req.get("User-Agent") || "Unknown",
+        path: req.originalUrl
+    });
+
+    if (securityLogs.length > 500) securityLogs.shift();
+}
+
+// ===========================
+//          FRONT PAGE
+// ===========================
+app.get("/", (req, res) => {
+logSecurity(req);
+
+res.send(`
+<!DOCTYPE html>
+<html>
+<head>
 <title>NyoaSS Luau Obfuscator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body{background:#0d0d0d;color:white;font-family:Arial;margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100vh;}
-.card{background:#161616;padding:35px;width:92%;max-width:650px;border-radius:20px;box-shadow:0 0 30px rgba(125,76,255,.3);}
-textarea,input{width:100%;padding:14px;background:#222;border:none;border-radius:12px;margin-top:14px;color:white;}
-button{width:100%;padding:14px;margin-top:20px;background:#7d4cff;border:none;border-radius:14px;color:white;font-size:17px;cursor:pointer;}
-.result{margin-top:20px;background:#111;padding:10px;border-radius:12px;display:none;}
+body{margin:0;background:#0d0d0d;color:white;font-family:Arial;height:100vh;display:flex;align-items:center;justify-content:center}
+input,textarea{width:100%;padding:12px;margin-top:10px;border:none;border-radius:10px;background:#222;color:white}
+textarea{height:150px}
+button{width:100%;padding:12px;margin-top:15px;border:none;background:#7d4cff;border-radius:10px;color:white;font-size:17px;cursor:pointer}
+.card{background:#161616;padding:25px;width:90%;max-width:600px;border-radius:20px;box-shadow:0 0 25px rgba(125,76,255,.3)}
+.res{background:#111;margin-top:15px;padding:10px;border-radius:12px;display:none;word-break:break-all}
 </style>
 </head>
 <body>
-<div class="card">
-<h1>NyoaSS Luau Obfuscator</h1>
-<textarea id="code" placeholder="Paste script"></textarea>
-<input id="password" placeholder="Password">
-<button onclick="gen()">Generate</button>
-<div id="result" class="result"></div>
 
-<br><br>
-<a href="/admin?key=${ADMIN_KEY}" style="color:#7d4cff;">Admin panel</a>
+<div class="card">
+<h2>NyoaSS Luau Obfuscator</h2>
+
+<textarea id="code" placeholder="Paste script..."></textarea>
+<input id="password" placeholder="8-15 char password">
+
+<button onclick="gen()">Generate</button>
+
+<div id="res" class="res"></div>
+
+<br>
+<h3>Edit Script</h3>
+<input id="edit_id" placeholder="Script ID">
+<input id="edit_pass" placeholder="Password">
+<button onclick="loadEdit()">Load</button>
+
+<textarea id="edit_area" style="display:none"></textarea>
+<button id="save_btn" style="display:none" onclick="saveEdit()">Save</button>
+
 </div>
 
 <script>
 function gen(){
-  const code=document.getElementById("code").value;
-  const pass=document.getElementById("password").value;
-  if(!code||!pass)return alert("Fill all");
+    const c = code.value;
+    const p = password.value;
 
-  fetch("/save",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({code,pass})
-  })
-  .then(r=>r.json())
-  .then(d=>{
-    const link = location.origin + "/raw/" + d.id;
-    const load = \`loadstring(game:HttpGet("\${link}"))()\`;
-    result.style.display="block";
-    result.innerText = load;
-  });
+    if(p.length < 8 || p.length > 15){
+        alert("Password must be 8-15 characters");
+        return;
+    }
+
+    fetch("/save",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ code:c, pass:p })
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        const url = location.origin + "/raw/" + d.id;
+        const s = \`loadstring(game:HttpGet("\${url}"))()\`;
+        res.style.display="block";
+        res.innerText = s;
+    });
+}
+
+function loadEdit(){
+    fetch("/edit/load?id="+edit_id.value+"&pass="+edit_pass.value)
+    .then(r=>r.text())
+    .then(t=>{
+        if(t.startsWith("ERR")){ alert(t); return; }
+        edit_area.style.display="block";
+        save_btn.style.display="block";
+        edit_area.value = t;
+    });
+}
+
+function saveEdit(){
+    fetch("/edit/save",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({
+            id:edit_id.value,
+            pass:edit_pass.value,
+            code:edit_area.value
+        })
+    })
+    .then(r=>r.text())
+    .then(alert);
 }
 </script>
-</body></html>`);
+
+</body>
+</html>
+`);
 });
 
-// ===================== SAVE CODE =====================
+// ===========================
+//        SAVE SCRIPT
+// ===========================
 app.post("/save", (req,res)=>{
-    addLog("SAVE_SCRIPT", req.get("User-Agent"));
-    const { code, pass } = req.body;
-    const id = Math.random().toString(36).slice(2,10);
+logSecurity(req);
 
-    codes[id] = { code, pass };
-    res.json({ id });
+const { code, pass } = req.body;
+
+if(pass.length < 8 || pass.length > 15){
+    return res.json({ error:"Password length must be 8-15" });
+}
+
+const id = Math.random().toString(36).substring(2,10);
+codes[id] = { code, pass };
+
+res.json({ id });
 });
 
-// ===================== RAW VIEW =====================
+// ===========================
+//          RAW
+// ===========================
 app.get("/raw/:id", (req,res)=>{
-    const item = codes[req.params.id];
-    if(!item) return res.send("Not found");
+logSecurity(req);
 
-    addLog("RAW_REQUEST", req.get("User-Agent"));
+const item = codes[req.params.id];
+if(!item) return res.status(404).send("Not found");
 
-    const ua = req.get("User-Agent") || "";
-    if(!ua.includes("Roblox")){
-        return res.send(`
-        <form action="/raw/${req.params.id}/check">
-          <input name="pass" placeholder="Password" type="password">
-          <button>Open</button>
-        </form>`);
-    }
+const ua = req.get("User-Agent") || "";
 
-    res.set("Content-Type","text/plain");
-    res.send(item.code);
+if(!ua.includes("Roblox")){
+return res.send(`
+<html><body style="background:#000;color:white;display:flex;justify-content:center;align-items:center;height:100vh;">
+<form method="GET" action="/raw/${req.params.id}/check">
+<input name="pass" type="password" placeholder="Password" style="padding:10px;border-radius:10px;background:#222;color:white;">
+<button style="margin-top:10px;padding:10px 20px;border:none;background:#7d4cff;color:white;border-radius:10px;">Open</button>
+</form>
+</body></html>
+`);
+}
+
+res.set("Content-Type","text/plain");
+res.send(item.code);
 });
 
+// PASSWORD CHECK
 app.get("/raw/:id/check", (req,res)=>{
-    const item = codes[req.params.id];
-    if(!item) return res.send("Not found");
+logSecurity(req);
 
-    if(req.query.pass !== item.pass) return res.send("Wrong password");
-    addLog("RAW_OPENED", req.get("User-Agent"));
+const item = codes[req.params.id];
+if(!item) return res.send("Not found");
+if(req.query.pass !== item.pass) return res.send("Wrong password");
 
-    res.set("Content-Type","text/plain");
-    res.send(item.code);
+res.set("Content-Type","text/plain");
+res.send(item.code);
 });
 
-// ===================== ADMIN PANEL =====================
+// ===========================
+//         EDIT API
+// ===========================
+app.get("/edit/load", (req,res)=>{
+logSecurity(req);
+
+const { id, pass } = req.query;
+const item = codes[id];
+if(!item) return res.send("ERR: Not found");
+if(item.pass !== pass) return res.send("ERR: Wrong password");
+
+res.send(item.code);
+});
+
+app.post("/edit/save", (req,res)=>{
+logSecurity(req);
+
+const { id, pass, code } = req.body;
+const item = codes[id];
+if(!item) return res.send("ERR: Not found");
+if(item.pass !== pass) return res.send("ERR: Wrong password");
+
+item.code = code;
+res.send("Saved");
+});
+
+// ===========================
+//     ADMIN PANEL (logs)
+// ===========================
 app.get("/admin", (req,res)=>{
-    if(req.query.key !== ADMIN_KEY){
-        addLog("ADMIN_DENIED", req.get("User-Agent"));
-        return res.send("<h1>Access denied</h1>");
-    }
+logSecurity(req);
 
-    addLog("ADMIN_OPEN", req.get("User-Agent"));
+if(req.query.key !== ADMIN_KEY)
+    return res.status(403).send("Forbidden");
 
-    res.send(`<!DOCTYPE html>
-<html><head>
-<title>Admin</title>
+let html = `
+<html>
+<head>
+<title>Admin Panel</title>
 <style>
-body{background:#0d0d0d;color:white;font-family:Arial;padding:40px;}
-.box{background:#161616;padding:20px;border-radius:14px;}
-pre{white-space:pre-wrap;background:#111;padding:15px;border-radius:10px;max-height:500px;overflow-y:scroll;}
-button{padding:10px 15px;margin:5px;background:#7d4cff;border:none;border-radius:10px;color:white;cursor:pointer;}
+body{background:#0d0d0d;color:white;font-family:Arial;padding:20px}
+.box{background:#161616;padding:20px;border-radius:12px}
 </style>
 </head>
 <body>
-<h1>🔐 Nyoa Security Logger</h1>
+<h1>Security Logs</h1>
 <div class="box">
-<pre id="logBox">Loading…</pre>
-<button onclick="load()">Refresh</button>
-<button onclick="clearLogs()">Clear</button>
-</div>
+`;
 
-<script>
-const key="${ADMIN_KEY}";
-function load(){
- fetch("/admin/logs?key="+key).then(r=>r.json()).then(d=>{
-   logBox.innerText = d.logs.map(l => 
-     \`[\${l.time}] (\${l.device}) → \${l.action}\`
-   ).join("\\n");
- });
-}
-load();
-function clearLogs(){
-  fetch("/admin/clear?key="+key,{method:"POST"});
-  setTimeout(load,300);
-}
-</script>
-
-</body></html>`);
+securityLogs.forEach(l=>{
+    html += `
+    <div style="margin-bottom:10px">
+    <b>Time:</b> ${l.time}<br>
+    <b>IP:</b> ${l.ip}<br>
+    <b>User-Agent:</b> ${l.ua}<br>
+    <b>Path:</b> ${l.path}<br>
+    <hr style="border-color:#333">
+    </div>`;
 });
 
-// GET LOGS
-app.get("/admin/logs", (req,res)=>{
-    if(req.query.key !== ADMIN_KEY) return res.json({ logs: [] });
-    res.json({ logs: loadLogs() });
+html += "</div></body></html>";
+
+res.send(html);
 });
 
-// CLEAR LOGS
-app.post("/admin/clear", (req,res)=>{
-    if(req.query.key !== ADMIN_KEY) return res.send("Denied");
-    saveLogs([]);
-    addLog("ADMIN_CLEAR", req.get("User-Agent"));
-    res.send("Cleared");
-});
-
-// ===================== START =====================
-app.listen(PORT, ()=> console.log("Server running on port", PORT));
+// ===========================
+app.listen(PORT, ()=> console.log("Server running on", PORT));
