@@ -1,281 +1,272 @@
-// ===============================================================
-// Nyoass Obfuscator v1.0 — FULL BUILD
-// Frontend + Backend + Logs + Key System + Admin Panel
-// Admin-Key: SlivkineepyScripts
-// ===============================================================
-
 const express = require("express");
 const bodyParser = require("body-parser");
-const crypto = require("crypto");
-const rateLimit = require("express-rate-limit");
+const cors = require("cors");
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// ============= MEMORY STORAGE =============
-let validKeys = [];
-let logs = [];
-let sessions = {};
+// ===========================
+//     ADMIN KEY
+// ===========================
+const ADMIN_KEY = "SlivkineepyScripts";
 
-// ============= MIDDLEWARE =============
+// ===========================
+//      MEMORY DATABASE
+// ===========================
+const codes = {};
+const securityLogs = [];
+
+// ===========================
+//      MIDDLEWARE
+// ===========================
+app.use(cors());
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true }));
 
-// Анти-спам
-const limiter = rateLimit({
-    windowMs: 5000,
-    max: 20,
+// Anti‑Spam: 1 запрос в 800 ms
+const rateLimitMap = {};
+app.use((req, res, next) => {
+    const ip = req.ip;
+    const now = Date.now();
+
+    if (rateLimitMap[ip] && now - rateLimitMap[ip] < 800) {
+        return res.status(429).send("Too many requests");
+    }
+
+    rateLimitMap[ip] = now;
+    next();
 });
-app.use(limiter);
 
-// Генератор Session ID
-function newSession(req) {
-    const id = crypto.randomBytes(8).toString("hex");
-    sessions[id] = true;
-    return id;
-}
-
-// Время
-function now() {
-    return new Date().toLocaleString();
-}
-
-// Логирование
-function pushLog(key, action, script, agent, session) {
-    logs.push({
-        time: now(),
-        key: key || "NO-KEY",
-        action,
-        code: script || "",
-        agent: agent || "unknown",
-        session: session || "none"
+// SECURITY LOGGER
+function logSecurity(req) {
+    securityLogs.push({
+        time: new Date().toISOString(),
+        ip: req.ip,
+        ua: req.get("User-Agent") || "Unknown",
+        path: req.originalUrl
     });
+
+    if (securityLogs.length > 500) securityLogs.shift();
 }
 
-// ============================================
-// =============== FRONTEND ====================
-// ============================================
+// ===========================
+//          FRONT PAGE
+// ===========================
 app.get("/", (req, res) => {
-    const session = newSession(req);
+logSecurity(req);
 
-    res.send(`
+res.send(`
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Nyoass Obfuscator v1.0</title>
+<title>NyoaSS Luau Obfuscator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body {
-    background:#0f0f12;
-    color:white;
-    font-family:Arial;
-    margin:0;
-}
-.header{
-    padding:20px;
-    background:#1a1a20;
-    font-size:28px;
-}
-.tabs{
-    display:flex;
-    background:#15151a;
-}
-.tab{
-    padding:12px 18px;
-    cursor:pointer;
-    border-right:1px solid #222;
-}
-.tab:hover{
-    background:#222;
-}
-.active{
-    background:#333 !important;
-}
-.page{
-    display:none;
-    padding:20px;
-}
-textarea{
-    width:100%;
-    height:240px;
-    background:#111;
-    color:#fff;
-    border:1px solid #333;
-    padding:10px;
-}
-button{
-    padding:10px 20px;
-    margin-top:10px;
-    cursor:pointer;
-    background:#2b2bff;
-    border:none;
-    color:white;
-}
-#copyBox{
-    display:none;
-    margin-top:15px;
-    background:#111;
-    padding:10px;
-}
-.footer-link {
-    position: fixed;
-    left: 10px;
-    bottom: 10px;
-    color: #7aa2ff;
-    cursor:pointer;
-}
+body{margin:0;background:#0d0d0d;color:white;font-family:Arial;height:100vh;display:flex;align-items:center;justify-content:center}
+input,textarea{width:100%;padding:12px;margin-top:10px;border:none;border-radius:10px;background:#222;color:white}
+textarea{height:150px}
+button{width:100%;padding:12px;margin-top:15px;border:none;background:#7d4cff;border-radius:10px;color:white;font-size:17px;cursor:pointer}
+.card{background:#161616;padding:25px;width:90%;max-width:600px;border-radius:20px;box-shadow:0 0 25px rgba(125,76,255,.3)}
+.res{background:#111;margin-top:15px;padding:10px;border-radius:12px;display:none;word-break:break-all}
 </style>
 </head>
-
 <body>
 
-<div class="header">Nyoass Obfuscator v1.0</div>
+<div class="card">
+<h2>NyoaSS Luau Obfuscator</h2>
 
-<div class="tabs">
-    <div class="tab active" onclick="show('obf')">Obfuscator</div>
-    <div class="tab" onclick="show('edit')">Edit</div>
-    <div class="tab" onclick="show('info')">Info</div>
-</div>
+<textarea id="code" placeholder="Paste script..."></textarea>
+<input id="password" placeholder="8-15 char password">
 
-<div id="obf" class="page" style="display:block;">
-    <h2>Protect your Lua script</h2>
-    <input id="key" placeholder="Enter key (8-15 chars)">
-    <br><br>
-    <textarea id="lua" placeholder="Your script here"></textarea>
-    <br>
-    <button onclick="protect()">Protect</button>
+<button onclick="gen()">Generate</button>
 
-    <div id="copyBox">
-        <p>Generated loadstring:</p>
-        <textarea id="generated" readonly></textarea>
-        <button onclick="copyGen()">Copy</button>
-    </div>
+<div id="res" class="res"></div>
 
-    <br><br>
-    <button onclick="openFree()">Open without key</button>
-</div>
+<br>
+<h3>Edit Script</h3>
+<input id="edit_id" placeholder="Script ID">
+<input id="edit_pass" placeholder="Password">
+<button onclick="loadEdit()">Load</button>
 
-<div id="edit" class="page">
-    <h2>Edit Script</h2>
-    <input id="editPass" placeholder="Enter edit password">
-    <button onclick="openEdit()">Unlock</button>
+<textarea id="edit_area" style="display:none"></textarea>
+<button id="save_btn" style="display:none" onclick="saveEdit()">Save</button>
 
-    <div id="editBox" style="display:none;">
-        <textarea id="editArea"></textarea>
-        <button onclick="saveEdit()">Save</button>
-    </div>
-</div>
-
-<div id="info" class="page">
-    <h2>What this obfuscator does?</h2>
-    <p>- Protects Lua code from simple reverse engineering</p>
-    <p>- Adds fake noise lines</p>
-    <p>- Wraps into encoded loader</p>
-    <p>- Prevents easy copy & paste leaks</p>
-</div>
-
-<div class="footer-link" onclick="window.open('https://discord.gg/yourlink', '_blank')">
-    Join Discord
 </div>
 
 <script>
-let session = "${session}";
+function gen(){
+    const c = code.value;
+    const p = password.value;
 
-function show(id){
-    document.querySelectorAll(".page").forEach(p=>p.style.display="none");
-    document.getElementById(id).style.display="block";
-    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-    event.target.classList.add("active");
-}
-
-async function protect(){
-    let key = document.getElementById("key").value;
-    let lua = document.getElementById("lua").value;
-
-    let r = await fetch("/protect", {
-        method:"POST",
-        headers:{ "Content-Type": "application/json" },
-        body:JSON.stringify({ key, lua, session })
-    });
-
-    let j = await r.json();
-    document.getElementById("generated").value = j.loadstring;
-    document.getElementById("copyBox").style.display = "block";
-}
-
-async function openFree(){
-    let lua = document.getElementById("lua").value;
-
-    let r = await fetch("/protect", {
-        method:"POST",
-        headers:{ "Content-Type": "application/json" },
-        body:JSON.stringify({ key: "NO-KEY", lua, session })
-    });
-
-    let j = await r.json();
-    document.getElementById("generated").value = j.loadstring;
-    document.getElementById("copyBox").style.display = "block";
-}
-
-function copyGen(){
-    navigator.clipboard.writeText(document.getElementById("generated").value);
-}
-
-async function openEdit(){
-    let pass = document.getElementById("editPass").value;
-    if(pass !== "SlivkineepyScripts"){
-        alert("Wrong password");
+    if(p.length < 8 || p.length > 15){
+        alert("Password must be 8-15 characters");
         return;
     }
-    document.getElementById("editBox").style.display = "block";
+
+    fetch("/save",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ code:c, pass:p })
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        const url = location.origin + "/raw/" + d.id;
+        const s = \`loadstring(game:HttpGet("\${url}"))()\`;
+        res.style.display="block";
+        res.innerText = s;
+    });
 }
 
-async function saveEdit(){
-    let t = document.getElementById("editArea").value;
-    alert("Saved (just frontend)");
+function loadEdit(){
+    fetch("/edit/load?id="+edit_id.value+"&pass="+edit_pass.value)
+    .then(r=>r.text())
+    .then(t=>{
+        if(t.startsWith("ERR")){ alert(t); return; }
+        edit_area.style.display="block";
+        save_btn.style.display="block";
+        edit_area.value = t;
+    });
+}
+
+function saveEdit(){
+    fetch("/edit/save",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({
+            id:edit_id.value,
+            pass:edit_pass.value,
+            code:edit_area.value
+        })
+    })
+    .then(r=>r.text())
+    .then(alert);
 }
 </script>
 
 </body>
 </html>
-    `);
+`);
 });
 
+// ===========================
+//        SAVE SCRIPT
+// ===========================
+app.post("/save", (req,res)=>{
+logSecurity(req);
 
-// ==================================================
-// =============== BACKEND METHODS ===================
-// ==================================================
+const { code, pass } = req.body;
 
-// PROTECT SCRIPT
-app.post("/protect", (req, res) => {
-    let { key, lua, session } = req.body;
+if(pass.length < 8 || pass.length > 15){
+    return res.json({ error:"Password length must be 8-15" });
+}
 
-    // Логируем
-    pushLog(key, "PROTECT", lua, req.headers["user-agent"], session);
+const id = Math.random().toString(36).substring(2,10);
+codes[id] = { code, pass };
 
-    // Простая упаковка (не обфускация)
-    let encoded = Buffer.from(lua).toString("base64");
-
-    res.json({
-        loadstring: `loadstring(game:HttpGet("https://nyoass-lua-locker1.onrender.com/api/run?d=${encoded}"))()`
-    });
+res.json({ id });
 });
 
-// API RUN — классический декодер
-app.get("/api/run", (req, res) => {
-    let d = req.query.d || "";
-    let txt = Buffer.from(d, "base64").toString("utf8");
-    res.type("text/plain").send(txt);
+// ===========================
+//          RAW
+// ===========================
+app.get("/raw/:id", (req,res)=>{
+logSecurity(req);
+
+const item = codes[req.params.id];
+if(!item) return res.status(404).send("Not found");
+
+const ua = req.get("User-Agent") || "";
+
+if(!ua.includes("Roblox")){
+return res.send(`
+<html><body style="background:#000;color:white;display:flex;justify-content:center;align-items:center;height:100vh;">
+<form method="GET" action="/raw/${req.params.id}/check">
+<input name="pass" type="password" placeholder="Password" style="padding:10px;border-radius:10px;background:#222;color:white;">
+<button style="margin-top:10px;padding:10px 20px;border:none;background:#7d4cff;color:white;border-radius:10px;">Open</button>
+</form>
+</body></html>
+`);
+}
+
+res.set("Content-Type","text/plain");
+res.send(item.code);
 });
 
-// ADMIN PANEL
-app.get("/admin", (req, res) => {
-    let key = req.query.key;
-    if (key !== "SlivkineepyScripts") return res.send("Invalid admin key");
+// PASSWORD CHECK
+app.get("/raw/:id/check", (req,res)=>{
+logSecurity(req);
 
-    let html = `<h1>Admin Logs</h1><pre>${JSON.stringify(logs, null, 2)}</pre>`;
-    res.send(html);
+const item = codes[req.params.id];
+if(!item) return res.send("Not found");
+if(req.query.pass !== item.pass) return res.send("Wrong password");
+
+res.set("Content-Type","text/plain");
+res.send(item.code);
 });
 
+// ===========================
+//         EDIT API
+// ===========================
+app.get("/edit/load", (req,res)=>{
+logSecurity(req);
 
-app.listen(3000, () =>
-    console.log("Nyoass Obfuscator running on port 3000")
-);
+const { id, pass } = req.query;
+const item = codes[id];
+if(!item) return res.send("ERR: Not found");
+if(item.pass !== pass) return res.send("ERR: Wrong password");
+
+res.send(item.code);
+});
+
+app.post("/edit/save", (req,res)=>{
+logSecurity(req);
+
+const { id, pass, code } = req.body;
+const item = codes[id];
+if(!item) return res.send("ERR: Not found");
+if(item.pass !== pass) return res.send("ERR: Wrong password");
+
+item.code = code;
+res.send("Saved");
+});
+
+// ===========================
+//     ADMIN PANEL (logs)
+// ===========================
+app.get("/admin", (req,res)=>{
+logSecurity(req);
+
+if(req.query.key !== ADMIN_KEY)
+    return res.status(403).send("Forbidden");
+
+let html = `
+<html>
+<head>
+<title>Admin Panel</title>
+<style>
+body{background:#0d0d0d;color:white;font-family:Arial;padding:20px}
+.box{background:#161616;padding:20px;border-radius:12px}
+</style>
+</head>
+<body>
+<h1>Security Logs</h1>
+<div class="box">
+`;
+
+securityLogs.forEach(l=>{
+    html += `
+    <div style="margin-bottom:10px">
+    <b>Time:</b> ${l.time}<br>
+    <b>IP:</b> ${l.ip}<br>
+    <b>User-Agent:</b> ${l.ua}<br>
+    <b>Path:</b> ${l.path}<br>
+    <hr style="border-color:#333">
+    </div>`;
+});
+
+html += "</div></body></html>";
+
+res.send(html);
+});
+
+// ===========================
+app.listen(PORT, ()=> console.log("Server running on", PORT));
