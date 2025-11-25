@@ -60,83 +60,114 @@ res.send(`
 <head>
 <title>NyoaSS Luau Obfuscator</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body{margin:0;background:#0d0d0d;color:white;font-family:Arial}
 
-.tabs {
-  width:100%;
-  display:flex;
-  background:#161616;
-  border-bottom:2px solid #222;
+<style>
+body { margin:0;background:#0d0d0d;color:white;font-family:Arial }
+.top-menu {
+  display:flex;gap:20px;justify-content:center;
+  padding:15px;background:#111;position:sticky;top:0;
 }
 .tab {
-  padding:15px 20px;
-  cursor:pointer;
-  flex:1;
-  text-align:center;
-  background:#161616;
-  color:#aaa;
-  transition:0.2s;
+  padding:10px 20px;background:#191919;border-radius:10px;
+  cursor:pointer;transition:.15s;
+  box-shadow:0 0 10px rgba(125,76,255,.3);
 }
-.tab:hover { background:#1f1f1f; }
-.tab.active { color:white; background:#7d4cff; }
+.tab:hover { background:#222; }
 
-.page { display:none; padding:20px; }
-.page.active { display:block; }
+.card {
+  background:#161616;padding:25px;margin:25px auto;
+  width:90%;max-width:650px;border-radius:20px;
+  box-shadow:0 0 25px rgba(125,76,255,.3);
+}
 
-input,textarea{width:100%;padding:12px;margin-top:10px;border:none;border-radius:10px;background:#222;color:white}
-textarea{height:150px}
-button{width:100%;padding:12px;margin-top:15px;border:none;background:#7d4cff;border-radius:10px;color:white;font-size:17px;cursor:pointer}
-.card{background:#161616;padding:25px;width:90%;max-width:600px;border-radius:20px;box-shadow:0 0 25px rgba(125,76,255,.3)}
-.res{background:#111;margin-top:15px;padding:10px;border-radius:12px;display:none;word-break:break-all}
+textarea,input {
+  width:100%;padding:12px;margin-top:10px;
+  border:none;border-radius:10px;background:#222;color:white;
+}
+textarea{height:170px}
+
+button {
+  width:100%;padding:13px;margin-top:15px;
+  background:#7d4cff;border:none;border-radius:10px;
+  color:white;font-size:17px;cursor:pointer;
+}
+button:hover { opacity:.9; }
+
+.hidden{display:none}
+
+.result-box {
+  margin-top:15px;background:#111;padding:10px;border-radius:12px;
+  display:none;word-break:break-all;
+}
 </style>
+
 </head>
 <body>
 
-<div class="tabs">
-  <div class="tab active" onclick="openTab(0)">Obfuscator</div>
-  <div class="tab" onclick="openTab(1)">Edit</div>
-  <div class="tab" onclick="openTab(2)">About</div>
+<div class="top-menu">
+  <div class="tab" onclick="openTab('obf')">Obfuscator</div>
+  <div class="tab" onclick="openTab('edit')">Edit</div>
+  <div class="tab" onclick="openTab('info')">Information</div>
+  <div class="tab" onclick="openTab('admin')">Admin</div>
 </div>
 
-<div id="page0" class="page active">
 <div class="card">
-<h2>NyoaSS Luau Obfuscator</h2>
 
-<textarea id="code" placeholder="Paste script..."></textarea>
-<input id="password" placeholder="8-15 char password">
+<!-- ============ OBF TAB ============ -->
+<div id="obfTab">
+  <h2>NyoaSS Luau Obfuscator</h2>
 
-<button onclick="gen()">Generate</button>
+  <textarea id="code" placeholder="Paste script..."></textarea>
+  <input id="password" placeholder="8–15 char password">
 
-<div id="res" class="res"></div>
-</div>
-</div>
+  <button onclick="gen()">Generate</button>
 
-<div id="page1" class="page">
-<div class="card">
-<h3>Edit Script</h3>
-<input id="edit_id" placeholder="Script ID">
-<input id="edit_pass" placeholder="Password">
-<button onclick="loadEdit()">Load</button>
-
-<textarea id="edit_area" style="display:none"></textarea>
-<button id="save_btn" style="display:none" onclick="saveEdit()">Save</button>
-</div>
+  <div id="res" class="result-box"></div>
 </div>
 
-<div id="page2" class="page">
-<div class="card">
-<h2>About</h2>
-<p>NyoaSS | Luau Locker / Obfuscator<br>Made for Roblox Script Protection</p>
+<!-- ============ EDIT TAB ============ -->
+<div id="editTab" class="hidden">
+  <h2>Edit Script</h2>
+
+  <input id="edit_id" placeholder="Script ID">
+  <input id="edit_pass" placeholder="Password">
+  <button onclick="loadEdit()">Load</button>
+
+  <textarea id="edit_area" class="hidden"></textarea>
+  <button id="save_btn" class="hidden" onclick="saveEdit()">Save</button>
 </div>
+
+<!-- ============ INFO TAB ============ -->
+<div id="infoTab" class="hidden">
+  <h2>Information</h2>
+  <p style="color:#ddd;line-height:1.5">
+  Cloud-based Luau script locker.<br>
+  Protects from dumping, spoofing, tracing, tampering.
+  </p>
 </div>
+
+<!-- ============ ADMIN TAB ============ -->
+<div id="adminTab" class="hidden">
+  <h2>Admin Panel</h2>
+  <input id="adm_key" placeholder="Enter admin key">
+  <button onclick="loadAdmin()">Open Logs</button>
+
+  <div id="admin_box" class="hidden" style="margin-top:15px;background:#111;padding:15px;border-radius:10px;max-height:300px;overflow:auto"></div>
+</div>
+
+</div>
+
 
 <script>
-function openTab(i){
-  document.querySelectorAll(".tab").forEach((t,n)=>t.classList.toggle("active",n===i));
-  document.querySelectorAll(".page").forEach((p,n)=>p.classList.toggle("active",n===i));
+function openTab(tab){
+  obfTab.classList.add("hidden");
+  editTab.classList.add("hidden");
+  infoTab.classList.add("hidden");
+  adminTab.classList.add("hidden");
+  document.getElementById(tab+"Tab").classList.remove("hidden");
 }
 
+// GENERATE
 function gen(){
     const c = code.value;
     const p = password.value;
@@ -154,23 +185,24 @@ function gen(){
     .then(r=>r.json())
     .then(d=>{
         const url = location.origin + "/raw/" + d.id;
-        const s = \`loadstring(game:HttpGet("\${url}"))()\`;
         res.style.display="block";
-        res.innerText = s;
+        res.innerText = \`loadstring(game:HttpGet("\${url}"))()\`;
     });
 }
 
+// LOAD FOR EDIT
 function loadEdit(){
     fetch("/edit/load?id="+edit_id.value+"&pass="+edit_pass.value)
     .then(r=>r.text())
     .then(t=>{
         if(t.startsWith("ERR")){ alert(t); return; }
-        edit_area.style.display="block";
-        save_btn.style.display="block";
+        edit_area.classList.remove("hidden");
+        save_btn.classList.remove("hidden");
         edit_area.value = t;
     });
 }
 
+// SAVE EDITED
 function saveEdit(){
     fetch("/edit/save",{
         method:"POST",
@@ -183,6 +215,16 @@ function saveEdit(){
     })
     .then(r=>r.text())
     .then(alert);
+}
+
+// ADMIN PANEL
+function loadAdmin(){
+    fetch("/admin?key="+adm_key.value)
+    .then(r=>r.text())
+    .then(tx=>{
+       admin_box.classList.remove("hidden");
+       admin_box.innerHTML = tx;
+    });
 }
 </script>
 
@@ -221,14 +263,14 @@ if(!item) return res.status(404).send("Not found");
 const ua = req.get("User-Agent") || "";
 
 if(!ua.includes("Roblox")){
-return res.send(\`
+return res.send(`
 <html><body style="background:#000;color:white;display:flex;justify-content:center;align-items:center;height:100vh;">
 <form method="GET" action="/raw/${req.params.id}/check">
-<input name="pass" type="password" placeholder="Password" style="padding:10px;border-radius:10px;background:#222;color:white;">
+<input name="pass" type="password" placeholder="Password" style="padding:12px;border-radius:10px;background:#222;color:white;">
 <button style="margin-top:10px;padding:10px 20px;border:none;background:#7d4cff;color:white;border-radius:10px;">Open</button>
 </form>
 </body></html>
-\`);
+`);
 }
 
 res.set("Content-Type","text/plain");
@@ -274,40 +316,25 @@ res.send("Saved");
 });
 
 // ===========================
-//     ADMIN PANEL (logs)
+//     ADMIN PANEL OUTPUT
 // ===========================
 app.get("/admin", (req,res)=>{
 logSecurity(req);
 
 if(req.query.key !== ADMIN_KEY)
-    return res.status(403).send("Forbidden");
+    return res.status(403).send("Wrong key");
 
-let html = `
-<html>
-<head>
-<title>Admin Panel</title>
-<style>
-body{background:#0d0d0d;color:white;font-family:Arial;padding:20px}
-.box{background:#161616;padding:20px;border-radius:12px}
-</style>
-</head>
-<body>
-<h1>Security Logs</h1>
-<div class="box">
-`;
-
+let html = "";
 securityLogs.forEach(l=>{
-    html += \`
-    <div style="margin-bottom:10px">
-    <b>Time:</b> \${l.time}<br>
-    <b>IP:</b> \${l.ip}<br>
-    <b>User-Agent:</b> \${l.ua}<br>
-    <b>Path:</b> \${l.path}<br>
-    <hr style="border-color:#333">
-    </div>\`;
+    html += `
+<div style="margin-bottom:10px">
+<b>Time:</b> ${l.time}<br>
+<b>IP:</b> ${l.ip}<br>
+<b>User-Agent:</b> ${l.ua}<br>
+<b>Path:</b> ${l.path}<br>
+<hr style="border-color:#333">
+</div>`;
 });
-
-html += "</div></body></html>";
 
 res.send(html);
 });
